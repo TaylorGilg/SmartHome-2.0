@@ -6,7 +6,7 @@ import io
 from PIL import Image
 import traceback
 from data.config import *
-
+from blockchain import Blockchain, Block #import block chain classes
 
 class Hub(Communicator):
     """
@@ -38,6 +38,8 @@ class Hub(Communicator):
 
         self.init_sockets()
 
+    def logAction(self, action)  #creating a new block to log action
+
     def send(self, message, recipient):
         """
         Sends an encrypted message to a recipient with UDP.
@@ -48,6 +50,10 @@ class Hub(Communicator):
         cipher_text = self.encrypt(message).encode("utf-8")
         # send the packet over UDP
         self.commSocket.sendto(cipher_text, recipient)
+
+        #Blockchain: sends record of action to other devices and hub so they can update their ledgers
+        self.logAction(f'Sent message to {recipient}')
+        super.send(message, recipient)
 
     def receive(self):
         """
@@ -107,6 +113,17 @@ class Hub(Communicator):
             # decrypt the msg
             plain_text = message
             return plain_text, addr
+        
+        #Blockchain: takes in block from another device to update this device's ledger
+        self.logAction("Received a message")
+        return super().recieve()
+    
+    #fetches each device's blockchain state and checks their integrity
+    def verifyLedgers(self) 
+        
+    #fetches device's blockchain state and checks a device's blockchain integrity
+    def checkDeviceChain(self, device_id) 
+        
         
     def show_image(self, image):
         image.show()

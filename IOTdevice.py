@@ -1,12 +1,16 @@
 from communicator import Communicator
 from socket import *
-
+from blockchain import Blockchain, Block #Import blockchain classes
 
 class IOTDevice(Communicator):
     def __init__(self, id):
         super().__init__(id)
+        self.blockchain = Blockchain() #each IoT device should have its own blockchain ledger
 
-    def send(self, message, recipient, data_type=None, TCP_socket=None, server_addr=None):        
+    def logAction(self, action) #creating a new block to log action
+
+    def send(self, message, recipient, data_type=None, TCP_socket=None, server_addr=None):    
+
         if data_type == 'image':            
             # Use UDP connection to send header and length information            
             header = data_type + ":" + str(len(message))
@@ -33,6 +37,9 @@ class IOTDevice(Communicator):
             # send the packet over UDP
             self.commSocket.sendto(cipher_text, recipient)
 
+        #Blockchain: sends record of action to other devices and hub so they can update their ledgers
+        self.logAction(f'Send message to {recipient} with data type {data_type}')
+
         return
 
     def receive(self):
@@ -42,6 +49,10 @@ class IOTDevice(Communicator):
         # decrypt the msg
         plain_text = self.decrypt(msg)
         return plain_text
+    
+        #Blockchain: takes in block from another device to update this device's ledger
+        self.logAction("Recieved a message")
+        return super().recieve()
 
     def init_sockets(self, ip, port ):
         # initialize 1-to-1 socket with Hub here

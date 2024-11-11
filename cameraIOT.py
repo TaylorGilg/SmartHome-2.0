@@ -1,6 +1,7 @@
 from IOTdevice import IOTDevice
 from Vigenere import VigenereCipher
 from data.config import *
+import time
 
 class CameraIOT(IOTDevice):
     """Simulate camera IOT"""

@@ -26,6 +26,7 @@ class HubUI:
 
         self.add_device_button = Button(self.root, text="Add Device", command=self.add_device)
         self.send_button = Button(self.root, text="Send Message", command=self.open_send_message_popup)
+        self.view_blockchain_button = Button(self.root, text="View Blockchain", command=self.view_blockchain)  # New button
         self.receive_text = Text(self.root, height=10, width=50)
         self.device_list_text = Text(self.root, height=5, width=50)
         self.receive_text.config(state="disabled")
@@ -33,20 +34,22 @@ class HubUI:
 
         self.add_device_button.grid(row=3, column=0, columnspan=2, pady=10)
         self.send_button.grid(row=4, column=0, columnspan=2, pady=10)
-        self.receive_text.grid(row=5, column=0, columnspan=2, pady=10)
-        self.device_list_text.grid(row=6, column=0, columnspan=2, pady=10)
+        self.view_blockchain_button.grid(row=5, column=0, columnspan=2, pady=10)  # Added button to grid
+        self.receive_text.grid(row=6, column=0, columnspan=2, pady=10)  # Moved down one row
+        self.device_list_text.grid(row=7, column=0, columnspan=2, pady=10)  # Moved down one row
 
         scrollbar_receive = Scrollbar(self.root, command=self.receive_text.yview)
         scrollbar_device_list = Scrollbar(self.root, command=self.device_list_text.yview)
 
-        scrollbar_receive.grid(row=5, column=2, sticky='nsew')
-        scrollbar_device_list.grid(row=6, column=2, sticky='nsew')
+        scrollbar_receive.grid(row=6, column=2, sticky='nsew')  # Updated row number
+        scrollbar_device_list.grid(row=7, column=2, sticky='nsew')  # Updated row number
 
         self.receive_text['yscrollcommand'] = scrollbar_receive.set
         self.device_list_text['yscrollcommand'] = scrollbar_device_list.set
 
         # Start a thread to continuously listen for messages
         receive_thread = Thread(target=self.receive_messages)
+        receive_thread.daemon = True  # Added daemon=True to prevent hanging on exit
         receive_thread.start()
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -64,6 +67,35 @@ class HubUI:
         else:
             messagebox.showerror("Error", "All fields must be filled.")
 
+# Display blockchain data from hub.
+    def view_blockchain(self):
+        blockchain_window = Toplevel(self.root)
+        blockchain_window.title("Blockchain View")
+        blockchain_window.geometry("800x600")
+
+        blockchain_text = Text(blockchain_window, wrap="word", height=30, width=90)
+        scrollbar = Scrollbar(blockchain_window, command=blockchain_text.yview)
+        blockchain_text.configure(yscrollcommand=scrollbar.set)
+
+        blockchain_text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Get blockchain data from hub's communicator
+        blockchain_data = self.hub.get_blockchain_data()
+        
+        for block in blockchain_data:
+            blockchain_text.insert(END, f"\nBlock {block['index']}:\n")
+            blockchain_text.insert(END, f"Timestamp: {block['timestamp']}\n")
+            blockchain_text.insert(END, f"Previous Hash: {block['previous_hash']}\n")
+            blockchain_text.insert(END, "\nInteractions:\n")
+            
+            for interaction in block['interactions']:
+                blockchain_text.insert(END, f"\nFrom: {interaction['sender']}\n")
+                blockchain_text.insert(END, f"To: {interaction['recipient']}\n")
+                blockchain_text.insert(END, f"Data: {interaction['data']}\n")
+                blockchain_text.insert(END, "-" * 50 + "\n")
+
+        blockchain_text.config(state="disabled")
     def open_send_message_popup(self):
         popup = Toplevel(self.root)
         popup.title("Send Message")

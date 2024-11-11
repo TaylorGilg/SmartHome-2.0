@@ -41,3 +41,34 @@ class Blockchain:
     def hash(block):
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
+    
+# Proof of Work Algorithm: First find a number p' such that hash(pp') contains leading 4 zeroes. P is previous proof.
+    def proof_of_work(self, last_proof):
+       
+        proof = 0
+        while self.valid_proof(last_proof, proof) is False:
+            proof += 1
+        return proof
+    
+# Validates the proof by checking if the hash contain 4 leading 0s
+    @staticmethod
+    def valid_proof(last_proof, proof):
+        guess = f'{last_proof}{proof}'.encode()
+        guess_hash = hashlib.sha256(guess).hexdigest()
+        return guess_hash[:4] == "0000"
+
+#  Determine if a given blockchain is valid by checking hash linkage and proofs    
+    def is_valid_chain(self):
+        for i in range(1, len(self.chain)):
+            current_block = self.chain[i]
+            previous_block = self.chain[i - 1]
+
+            # Check that the hash of the block is correct
+            if current_block['previous_hash'] != self.hash(previous_block):
+                return False
+
+            # Check that the Proof of Work is correct
+            if not self.valid_proof(previous_block['proof'], current_block['proof']):
+                return False
+
+        return True

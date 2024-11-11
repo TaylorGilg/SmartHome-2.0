@@ -4,20 +4,20 @@ from datetime import datetime
 from data.config import *
 
 class thermostatIOT(IOTDevice):
-    """
-    A Thermostat class for managing and communicating a temperature (in a smarthome).
-    """
-    def __init__(self, id):
+    def __init__(self, id, location="unknown"):
         super().__init__(id)
         self.id = id
+        self.location = location
         self._temperature = self.generate_random_temperature()
         self._fan_speed = self.map_fan_speed('med')
         self._state = "off"
         self._status = "off"
         self._time_thermostate = "00:00"
+        print(f"Thermostat {id} initialized at location: {location}")
+        print(f"Initial Temperature: {self._temperature}°F")
     
     def get_temperature(self):
-        return str(self._temperature)
+        return f"Thermostat {self.id}: {str(self._temperature)}°F"
     
     SPEED_MAPPING = {'high': .5, 'med': 0.3, 'low': 0.1}
     
@@ -26,26 +26,39 @@ class thermostatIOT(IOTDevice):
         return thermostatIOT.SPEED_MAPPING.get(fan_speed, 0.5)
     
     def get_state(self):
-        return self._state
+        return f"Thermostat {self.id}: {self._state}"
     
     def get_status(self):
-        return self._status
+        return f"Thermostat {self.id}: {self._status}"
+    
+    def get_location(self):
+        return f"Thermostat {self.id} location: {self.location}"
+    
+    def set_location(self, new_location):
+        self.location = new_location
+        return f"Thermostat {self.id} location set to {new_location}"
     
     def set_state(self, state):
-        if state == "on" or state == "off":    
-            self._state = state
-            return "200"
-        else:
-            raise Exception("invalid message", state)
+        try:
+            if state == "on" or state == "off":    
+                self._state = state
+                return f"Thermostat {self.id}: State set to {state}"
+            else:
+                raise Exception("invalid message", state)
+        except Exception as e:
+            raise e
     
     def set_status(self, status):
-        if self._state == "off": 
+        try:
+            if self._state == "off": 
                 raise Exception("off")
-        if status == "Heating" or status == "Cooling" or status == 'on':
-            self._status = status
-            return "200"
-        else:
-            raise Exception("invalid message", status)
+            if status == "Heating" or status == "Cooling" or status == 'on':
+                self._status = status
+                return f"Thermostat {self.id}: Status set to {status}"
+            else:
+                raise Exception("invalid message", status)
+        except Exception as e:
+            raise e
     
     def turn_on_heater(self):
         try:
@@ -53,7 +66,7 @@ class thermostatIOT(IOTDevice):
             self.set_status("Heating")
             return self.generate_sensor_data()
         except Exception as e:
-            return f"ERROR: {str(e)}"
+            return f"ERROR in {self.id}: {str(e)}"
         
     def turn_on_ac(self):
         try:
@@ -61,7 +74,7 @@ class thermostatIOT(IOTDevice):
             self.set_status("Cooling")
             return self.generate_sensor_data()
         except Exception as e:
-            return f"ERROR: {str(e)}"
+            return f"ERROR in {self.id}: {str(e)}"
         
     def turn_off_thermostat(self):
         try:
@@ -69,7 +82,7 @@ class thermostatIOT(IOTDevice):
             self.set_status("off")
             return self.generate_sensor_data()
         except Exception as e:
-            return f"ERROR: {str(e)}"
+            return f"ERROR in {self.id}: {str(e)}"
     
     def set_temperature(self, message):
         try:
@@ -95,12 +108,12 @@ class thermostatIOT(IOTDevice):
                         self._temperature += self._fan_speed
                         
                     current_time += update_interval
-                    print(f"Current Temperature: {round(self._temperature, 2)} °F | Timestamp: {readable_time}")
+                    print(f"Thermostat {self.id}: Current Temperature: {round(self._temperature, 2)}°F | Time: {readable_time}")
                     time.sleep(update_interval)
             
-            return str(f"Reached {str(round(self._temperature, 2))} °F at {readable_time}")
+            return f"Thermostat {self.id}: Reached {str(round(self._temperature, 2))}°F at {readable_time}"
         except Exception as e:
-            return f"ERROR: {str(e)}"
+            return f"ERROR in {self.id}: {str(e)}"
             
     def generate_random_temperature(self):
         return round(random.uniform(65, 75), 2)
@@ -110,88 +123,88 @@ class thermostatIOT(IOTDevice):
             self._fan_speed = self.map_fan_speed('med')
             current_time = time.time()
             readable_time = datetime.fromtimestamp(current_time).strftime('%H-%M-%S')
-            update_interval = 1
             
-            # Only run one iteration instead of continuous loop
             if self.get_state() == "on":
                 if self._status == "Heating":
                     self._temperature += self._fan_speed
                 if self._status == "Cooling":
                     self._temperature -= self._fan_speed
                     
-                print(f"Temperature: {round(self._temperature, 2)} °F | Timestamp: {readable_time}")
+                print(f"Thermostat {self.id}: Temperature: {round(self._temperature, 2)}°F | Time: {readable_time}")
                 
-            return str(f"Temperature: {round(self._temperature, 2)} °F | Timestamp: {readable_time}")
+            return f"Thermostat {self.id}: Temperature: {round(self._temperature, 2)}°F at {readable_time}"
         except Exception as e:
-            return f"ERROR: {str(e)}"
+            return f"ERROR in {self.id}: {str(e)}"
             
     def process_command(self, command, message=None):
         try:
+            if command == "error":
+                return f"ERROR: {message}"
+                
             mapper = {
                 'get_status': self.get_status,
-                'get_state' : self.get_state,
+                'get_state': self.get_state,
                 'get_temperature': self.get_temperature,
                 'set_temperature': self.set_temperature,
                 'set_heater': self.turn_on_heater,
                 'set_ac': self.turn_on_ac,
                 'turn_off': self.turn_off_thermostat,
+                'get_location': self.get_location,
+                'set_location': self.set_location,
             }
-            return mapper[command](message) if message else mapper[command]()
-        
-        except TypeError as e:
-            return f"ERROR: {e}"
-        except Exception as e:
-            exception = e.args[0]
-            if exception == "off":
-                return "ERROR: device currently off"
-            elif exception == "invalid message":
-                return f"ERROR: '{e.args[1]}' message not valid"
-            else:
-                return f"ERROR: {e} command not defined"
             
-def main():
+            if command not in mapper:
+                return f"ERROR: Unknown command '{command}'"
+                
+            result = mapper[command](message) if message else mapper[command]()
+            print(f"Command result for {self.id}: {result}")
+            return str(result)
+            
+        except Exception as e:
+            return f"ERROR from {self.id}: {str(e)}"
+
+def start_thermostat(therm_id, location, ip, port):
     try:
-        thermostat = thermostatIOT("therm1")
+        thermostat = thermostatIOT(therm_id, location)
         thermostat.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
         
-        print("Setting up a new Smart Thermostat..")
-        thermostat.init_sockets(THERMOSTAT_IP, THERMOSTAT_PORT)
-        
-        print(f"Initial Temperature: {thermostat.get_temperature()} °F")
-        print(f"Thermostat listening on {THERMOSTAT_IP}:{THERMOSTAT_PORT}")
-        
+        print(f"Setting up Thermostat {therm_id} at {location}")
+        thermostat.init_sockets(ip, port)
+        print(f"Thermostat {therm_id} listening on {ip}:{port}")
+
         while True:
             try:
-                print("\nWaiting for command...")
                 response, addr = thermostat.receive()
-                print(f"Received raw message: {response}")
-                
                 if response == "exit":
                     break
                     
+                print(f"Thermostat {therm_id} received: {response}")
                 command, message = thermostat.parse_command(response)
-                print(f"Parsed command: {command}, message: {message}")
+                output = thermostat.process_command(command, message)
                 
-                if command == "error":
-                    output = f"Error: {message}"
-                else:
-                    output = thermostat.process_command(command, message)
-                    
-                print(f"Sending response: {output}")
+                print(f"Thermostat {therm_id} sending response: {output}")
                 thermostat.send(output, (HUB_IP, HUB_PORT))
                 
             except Exception as e:
-                error_msg = f"Error processing message: {str(e)}"
+                error_msg = f"Error in Thermostat {therm_id}: {str(e)}"
                 print(error_msg)
-                try:
-                    thermostat.send(error_msg, (HUB_IP, HUB_PORT))
-                except:
-                    print("Failed to send error message to hub")
+                thermostat.send(error_msg, (HUB_IP, HUB_PORT))
         
-        print("Thermostat shutting down...")
+        print(f"Thermostat {therm_id} shutting down...")
         
     except Exception as e:
-        print(f"Fatal error: {str(e)}")
+        print(f"Fatal error in Thermostat {therm_id}: {str(e)}")
 
 if __name__ == "__main__":
-    main()
+    import sys
+    
+    if len(sys.argv) < 4:
+        print("Usage: python thermostatIOT.py <therm_id> <location> <port>")
+        print("Example: python thermostatIOT.py therm1 'Living Room' 8087")
+        sys.exit(1)
+        
+    therm_id = sys.argv[1]
+    location = sys.argv[2]
+    port = int(sys.argv[3])
+    
+    start_thermostat(therm_id, location, THERMOSTAT_IP, port)

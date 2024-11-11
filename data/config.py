@@ -1,15 +1,35 @@
 # IP ADDRESSES
-HUB_IP = "192.168.6.125"
-
+HUB_IP = "192.168.6.125"  # Use your actual IP
 CAMERA_IP = "192.168.6.125"
 DOORLOCK_IP = "192.168.6.125"
 THERMOSTAT_IP = "192.168.6.125"
 
 # PORTS
-HUB_PORT=8080
-CAMERA_PORT=8081
-DOORLOCK_PORT=8082
-THERMOSTAT_PORT=8083
+HUB_PORT = 8080
+
+# Device Port Configurations
+CAMERA_PORTS = {
+    'cam1': 8081,
+    'cam2': 8082,
+    'cam3': 8083,
+}
+
+DOORLOCK_PORTS = {
+    'door1': 8084,
+    'door2': 8085,
+    'door3': 8086,
+}
+
+THERMOSTAT_PORTS = {
+    'therm1': 8087,
+    'therm2': 8088,
+    'therm3': 8089,
+}
+
+# For backward compatibility
+CAMERA_PORT = CAMERA_PORTS['cam1']
+DOORLOCK_PORT = DOORLOCK_PORTS['door1']
+THERMOSTAT_PORT = THERMOSTAT_PORTS['therm1']
 
 # SHARED SECRET KEY
-KEY=2
+KEY = 2

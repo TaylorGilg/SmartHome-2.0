@@ -23,7 +23,8 @@ class CameraIOT(IOTDevice):
                 'get_status': self.get_status,
                 'set_status': self.set_status,
                 'get_location': self.get_location,
-                'set_location': self.set_location
+                'set_location': self.set_location,
+                'get_blockchain_data': self.get_blockchain_data
             }
                
             return mapper[command](message) if message else mapper[command]()

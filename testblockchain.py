@@ -1,4 +1,4 @@
-from Blockchain import Blockchain
+from blockchain import Blockchain
 from Interaction import Interaction
 # Create a new blockchain
 blockchain = Blockchain()

@@ -103,7 +103,8 @@ class DoorLock(IOTDevice):
                 'get_keyless_entry': self.get_keyless_entry,
                 'get_lock_time': self.get_lock_time,
                 'get_location': self.get_location,
-                'set_location': self.set_location
+                'set_location': self.set_location,
+                'get_blockchain_data': self.get_blockchain_data
             }
             return mapper[command](message) if message else mapper[command]()
         

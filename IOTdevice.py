@@ -1,6 +1,6 @@
 from communicator import Communicator
 from socket import *
-from blockchain import Blockchain, Block #Import blockchain classes
+from blockchain import Blockchain
 import time
 
 class IOTDevice(Communicator):
@@ -136,4 +136,22 @@ class IOTDevice(Communicator):
         }
         
         return new_command, message
+    
+    #takes in resolved chain to update personal device ledger 
+    def update_blockchain(self, chain_data):
+        try:
+            #parsing input
+            new_chain = json.loads(chain_data)
+            #checks if new chain has all valid block hashes and proof of work
+            if self.blockchain.is_valid_chain(new_chain):
+                #replaces old blockchain with new one
+                self.blockchain.chain = new_chain
+                return "Blockchain update successfully"
+            else:
+                return "Recieved invalid blockchain"
+        except Exception as e:
+            return f"Error updating blockchain: {str(e)}"
         
+    
+
+

@@ -1,6 +1,6 @@
 from Vigenere import VigenereCipher
 from Caesar import CaesarCipher
-from Blockchain import Blockchain
+from blockchain import Blockchain
 import time
 from socket import *
 
@@ -32,8 +32,8 @@ class Communicator:
             return encrypted_message
 
     def send(self, message, recipient, data_type=None, TCP_socket=None, server_addr=None):
-         """Enhanced send method"""
-    try:
+        """Enhanced send method"""
+        try:
             # Log the outgoing message
             self.blockchain.new_interaction(
                 sender=self.id,
@@ -68,10 +68,13 @@ class Communicator:
                 cipher_text = self.encrypt(message).encode("utf-8")
                 self.commSocket.sendto(cipher_text, recipient)
                 print(f"Sent message: {message} to {recipient}")
-            
-    except Exception as e:
+        except Exception as e:
             print(f"Error in send: {e}")
             raise
+                
+        except Exception as e:
+                print(f"Error in send: {e}")
+                raise
 
 
     def receive(self):

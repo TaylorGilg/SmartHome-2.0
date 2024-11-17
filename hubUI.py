@@ -8,7 +8,7 @@ class HubUI:
         self.hub = hub
         self.root = Tk()
         self.root.title("IoT Hub")
-
+        
         self.setup_ui()
 
     def setup_ui(self):

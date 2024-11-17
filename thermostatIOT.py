@@ -153,6 +153,7 @@ class thermostatIOT(IOTDevice):
                 'turn_off': self.turn_off_thermostat,
                 'get_location': self.get_location,
                 'set_location': self.set_location,
+                'get_blockchain_data': self.get_blockchain_data
             }
             
             if command not in mapper:

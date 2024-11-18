@@ -1,7 +1,14 @@
+import logging
 from IOTdevice import IOTDevice
 import random, time
 from datetime import datetime
 from data.config import *
+
+logging.basicConfig(
+    filename='thermostat.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s'
+)
 
 class thermostatIOT(IOTDevice):
     def __init__(self, id, location="unknown"):
@@ -13,8 +20,8 @@ class thermostatIOT(IOTDevice):
         self._state = "off"
         self._status = "off"
         self._time_thermostate = "00:00"
-        print(f"Thermostat {id} initialized at location: {location}")
-        print(f"Initial Temperature: {self._temperature}°F")
+        logging.info(f"Thermostat {id} initialized at location: {location}")
+        logging.info(f"Initial Temperature: {self._temperature}°F")
     
     def get_temperature(self):
         return f"Thermostat {self.id}: {str(self._temperature)}°F"
@@ -42,10 +49,12 @@ class thermostatIOT(IOTDevice):
         try:
             if state == "on" or state == "off":    
                 self._state = state
+                logging.info(f"Thermostat {self.id}: State set to {state}")
                 return f"Thermostat {self.id}: State set to {state}"
             else:
                 raise Exception("invalid message", state)
         except Exception as e:
+            logging.error(f"Error setting state: {e}")
             raise e
     
     def set_status(self, status):
@@ -86,34 +95,46 @@ class thermostatIOT(IOTDevice):
     
     def set_temperature(self, message):
         try:
+            # Split the input message to extract temperature and fan speed
             message = message.split(",")
             new_temperature = float(message[0])
             fan_speed = message[1]
             update_interval = 1
-            
+
+            # Log the received command details
+            logging.info(f"Thermostat {self.id}: Received set_temperature command. Target: {new_temperature}°F, Fan Speed: {fan_speed}")
+
             if fan_speed is not None:
                 self._fan_speed = self.map_fan_speed(fan_speed)
                 current_time = time.time()
                 readable_time = datetime.fromtimestamp(current_time).strftime('%H-%M-%S')
-                
+
+                # Gradually adjust the temperature until it reaches the desired range
                 while not (new_temperature - 0.5 <= self._temperature <= new_temperature + 0.5):
-                    if(self._temperature > new_temperature):
+                    if self._temperature > new_temperature:
                         self.set_state("on")
                         self.set_status("Cooling")
                         self._temperature -= self._fan_speed
-                        
-                    elif(self._temperature < new_temperature):
+                    elif self._temperature < new_temperature:
                         self.set_state("on")
                         self.set_status("Heating")
                         self._temperature += self._fan_speed
-                        
+
                     current_time += update_interval
-                    print(f"Thermostat {self.id}: Current Temperature: {round(self._temperature, 2)}°F | Time: {readable_time}")
+                    readable_time = datetime.fromtimestamp(current_time).strftime('%H:%M:%S')
+                    logging.info(f"Thermostat {self.id}: Adjusting Temperature: {round(self._temperature, 2)}°F | Time: {readable_time}")
                     time.sleep(update_interval)
-            
-            return f"Thermostat {self.id}: Reached {str(round(self._temperature, 2))}°F at {readable_time}"
+
+            # Log the successful adjustment
+            result = f"Thermostat {self.id}: Reached {str(round(self._temperature, 2))}°F at {readable_time}"
+            logging.info(result)
+            return result
+
         except Exception as e:
-            return f"ERROR in {self.id}: {str(e)}"
+            # Log the error and return the error message
+            error_msg = f"ERROR in {self.id}: {str(e)}"
+            logging.error(error_msg)
+            return error_msg
             
     def generate_random_temperature(self):
         return round(random.uniform(65, 75), 2)

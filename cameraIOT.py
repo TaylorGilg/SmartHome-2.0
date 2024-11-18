@@ -1,6 +1,13 @@
+import logging
 from IOTdevice import IOTDevice
 from data.config import *
 import time
+
+logging.basicConfig(
+    filename='camera.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s'
+)
 
 class CameraIOT(IOTDevice):
     """
@@ -11,40 +18,55 @@ class CameraIOT(IOTDevice):
         super().__init__(id)
         self.status = "live"
         self.location = location
-        print(f"Camera {id} initialized at location: {location}")
+        logging.info(f"Camera {id} initialized at location: {location}")
     
     def process_command(self, command, message=None):
         """Process received command"""
         try:
-            if command == "error":
-                return f"ERROR: {message}"
-                
+            logging.info(f"Camera {self.id}: Processing command '{command}' with message: '{message}'")
             mapper = {
                 'get_status': self.get_status,
                 'set_status': self.set_status,
                 'get_location': self.get_location,
                 'set_location': self.set_location
             }
-               
-            return mapper[command](message) if message else mapper[command]()
-        except KeyError:
-            return f"ERROR: Unknown command '{command}'"
+            if command not in mapper:
+                logging.warning(f"Camera {self.id}: Unknown command '{command}'")
+                return f"ERROR: Unknown command '{command}'"
+
+            result = mapper[command](message) if message else mapper[command]()
+            logging.info(f"Camera {self.id}: Command '{command}' executed successfully with result: '{result}'")
+            return result
         except Exception as e:
+            logging.error(f"Camera {self.id}: Error processing command '{command}': {e}")
             return f"ERROR: {str(e)}"
+
             
     def get_status(self):
         return f"Camera {self.id} status: {self.status}"
     
     def set_status(self, state):
-        self.status = state
-        return f"Camera {self.id} set to {state}"
+        try:
+            self.status = state
+            logging.info(f"Camera {self.id} status set to {state}")
+            return f"Camera {self.id} set to {state}"
+        except Exception as e:
+            logging.error(f"Error setting status: {e}")
+            raise e
     
     def get_location(self):
+        logging.info(f"Camera {self.id}: Retrieved location: {self.location}")
         return f"Camera {self.id} location: {self.location}"
     
     def set_location(self, new_location):
-        self.location = new_location
-        return f"Camera {self.id} location set to {new_location}"
+        try:
+            old_location = self.location
+            self.location = new_location
+            logging.info(f"Camera {self.id}: Location changed from {old_location} to {new_location}")
+            return f"Camera {self.id} location set to {new_location}"
+        except Exception as e:
+            logging.error(f"Camera {self.id}: Error setting location: {e}")
+            raise e
 
 # Example of running multiple cameras
 def start_camera(camera_id, location, ip, port):
@@ -52,45 +74,44 @@ def start_camera(camera_id, location, ip, port):
         camera = CameraIOT(camera_id, location)
         camera.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
 
-        print(f"Setting up Camera {camera_id} at {location}")
+        logging.info(f"Camera {camera_id}: Initialized at {location}, listening on {ip}:{port}")
         camera.init_sockets(ip, port)
-        
-        print(f"Camera {camera_id} listening on {ip}:{port}")
-        
+
         while True:
             try:
                 response, addr = camera.receive()
+                logging.info(f"Camera {camera_id}: Received message: {response} from {addr}")
                 if response == "exit":
                     break
-                    
-                print(f"Camera {camera_id} received: {response}")
+
                 command, message = camera.parse_command(response)
                 output = camera.process_command(command, message)
-                
-                print(f"Camera {camera_id} sending response: {output}")
+
+                logging.info(f"Camera {camera_id}: Sending response: {output}")
                 camera.send(output, (HUB_IP, HUB_PORT))
-                
             except Exception as e:
-                error_msg = f"Error in camera {camera_id}: {str(e)}"
-                print(error_msg)
+                error_msg = f"Error in Camera {camera_id}: {str(e)}"
+                logging.error(error_msg)
                 camera.send(error_msg, (HUB_IP, HUB_PORT))
-        
-        print(f"Camera {camera_id} shutting down...")
-        
+
+        logging.info(f"Camera {camera_id}: Shutting down...")
     except Exception as e:
-        print(f"Fatal error in camera {camera_id}: {str(e)}")
+        logging.critical(f"Fatal error in Camera {camera_id}: {str(e)}")
+
 
 if __name__ == "__main__":
-    # Example of how to start different cameras:
     import sys
-    
     if len(sys.argv) < 4:
+        logging.error("Camera initialization failed: Incorrect arguments provided.")
         print("Usage: python cameraIOT.py <camera_id> <location> <port>")
         print("Example: python cameraIOT.py cam1 'Front Door' 8081")
         sys.exit(1)
-        
-    camera_id = sys.argv[1]
-    location = sys.argv[2]
-    port = int(sys.argv[3])
-    
-    start_camera(camera_id, location, CAMERA_IP, port)
+
+    try:
+        camera_id = sys.argv[1]
+        location = sys.argv[2]
+        port = int(sys.argv[3])
+        logging.info(f"Starting camera with ID: {camera_id}, Location: {location}, Port: {port}")
+        start_camera(camera_id, location, CAMERA_IP, port)
+    except Exception as e:
+        logging.critical(f"Fatal error starting Camera: {str(e)}")

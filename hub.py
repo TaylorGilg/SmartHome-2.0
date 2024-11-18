@@ -1,3 +1,4 @@
+import logging
 from communicator import Communicator
 from socket import *
 import threading
@@ -7,17 +8,25 @@ from PIL import Image
 import traceback
 from data.config import *
 
+# Configure logging
+logging.basicConfig(
+    filename='hub.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s'
+)
+
 class Hub(Communicator):
     def __init__(self, name, ip, port):
         super().__init__(name)
         self.name = name
         self._authenticated_devices = {}  # {device_id: (ip, port)}
         self._device_locations = {}       # {device_id: location}
-        self._ip_to_id = {}              # {(ip, port): device_id}
+        self._ip_to_id = {}               # {(ip, port): device_id}
         self._ip = ip
         self._port = int(port)
         self._buf = 1024 * 2
         self.init_sockets()
+        logging.info(f"Hub '{self.name}' initialized at {ip}:{port}")
 
     def register_device(self, device_id, device_ip, device_port, location="unknown"):
         """Register a new device with the hub"""
@@ -40,9 +49,11 @@ class Hub(Communicator):
                     "status": "registered"
                 }
             )
+            logging.info(f"Device '{device_id}' registered at location: {location} (IP: {device_ip}, Port: {device_port})")
             print(f"Device {device_id} registered at {location}")
             
         except Exception as e:
+            logging.error(f"Error registering device '{device_id}': {e}")
             print(f"Error registering device: {e}")
             raise
 
@@ -52,13 +63,16 @@ class Hub(Communicator):
 
     def get_device_location(self, device_id):
         """Get device location"""
-        return self._device_locations.get(device_id, "unknown")
+        location = self._device_locations.get(device_id, "unknown")
+        logging.info(f"Retrieved location for device '{device_id}': {location}")
+        return location
 
     def init_sockets(self):
         """
         Creates a socket. For initialization.
         """
         super().init_sockets(self._ip, self._port)
+        logging.info(f"Sockets initialized for Hub '{self.name}' at {self._ip}:{self._port}")
         return
     
     def send(self, message, recipient):
@@ -77,6 +91,7 @@ class Hub(Communicator):
                     "status": "sent"
                 }
             )
+            logging.info(f"Sending command '{message}' to device '{device_id}' at {recipient}")
             
             # Format and send message
             if not isinstance(message, bytes) and not message.startswith(("text:", "image:")):
@@ -84,9 +99,11 @@ class Hub(Communicator):
                 
             cipher_text = self.encrypt(message).encode("utf-8")
             self.commSocket.sendto(cipher_text, recipient)
+            logging.info(f"Message sent to device '{device_id}': {message}")
             print(f"Sent message to {device_id}: {message}")
             
         except Exception as e:
+            logging.error(f"Error sending message to device at {recipient}: {e}")
             print(f"Error sending message: {e}")
             raise
 
@@ -115,9 +132,11 @@ class Hub(Communicator):
                     "status": "received"
                 }
             )
-            
+            logging.info(f"Message received from device '{device_id}': {plain_text}")
             print(f"Received from {device_id}: {plain_text}")
             return plain_text, addr
             
         except Exception as e:
+            logging.error(f"Error receiving message: {e}")
             print(f"Error receiving message: {e}")
+            raise

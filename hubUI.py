@@ -25,6 +25,11 @@ class HubUI:
         self.device_port_entry = Entry(reg_frame)
         self.device_location_entry = Entry(reg_frame)
 
+        self.device_id_entry = Entry(reg_frame)
+        self.device_ip_entry = Entry(reg_frame)
+        self.device_port_entry = Entry(reg_frame)
+        self.device_location_entry = Entry(reg_frame)
+
         self.device_id_entry.grid(row=0, column=1, padx=5, pady=5)
         self.device_ip_entry.grid(row=1, column=1, padx=5, pady=5)
         self.device_port_entry.grid(row=2, column=1, padx=5, pady=5)
@@ -94,6 +99,7 @@ class HubUI:
     def open_send_message_popup(self):
         popup = Toplevel(self.root)
         popup.title("Send Message")
+        popup.geometry("400x300")
 
         popup.geometry("400x300")
         # Get list of registered devices
@@ -132,7 +138,7 @@ class HubUI:
         send_button.grid(row=4, column=0, columnspan=2, pady=10)
 
     def send_message_popup(self, device_id, message, popup):
-        popup.destroy()  # Close the popup window
+        popup.destroy()
 
         if device_id and message:
             try:
@@ -166,7 +172,7 @@ class HubUI:
 
     def update_device_list(self):
         self.device_list_text.config(state="normal")
-        self.device_list_text.delete(1.0, END)  # Clear existing content
+        self.device_list_text.delete(1.0, END)
 
         for device_id, (device_ip, device_port) in self.hub._authenticated_devices.items():
             location = self.hub.get_device_location(device_id)
@@ -208,9 +214,7 @@ def main():
     input_ip = HUB_IP
     input_port = HUB_PORT
     hub = Hub("HUB", input_ip, input_port)
-
     hub.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
-
     hub_ui = HubUI(hub)
 
 if __name__ == "__main__":

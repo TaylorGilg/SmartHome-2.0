@@ -20,10 +20,9 @@ class thermostatIOT(IOTDevice):
     def get_temperature(self):
         return f"Thermostat {self.id}: {str(self._temperature)}°F"
     
-    #Possible fan_speeds
     SPEED_MAPPING = {'high': .5, 'med': 0.3, 'low': 0.1}
     
-    @staticmethod  # Static method doesn't need 'self'
+    @staticmethod
     def map_fan_speed(fan_speed):
         return thermostatIOT.SPEED_MAPPING.get(fan_speed, 0.5)
     
@@ -118,7 +117,6 @@ class thermostatIOT(IOTDevice):
     
     def generate_random_temperature(self):
         return round(random.uniform(65, 75), 2)
-    # Generate a random temperature between 65 and 75 in Fahrenheit  
                 
     def generate_sensor_data(self):
         try:
@@ -138,7 +136,6 @@ class thermostatIOT(IOTDevice):
         except Exception as e:
             return f"ERROR in {self.id}: {str(e)}"
             
-    # Searches for received message from Hub and calls it's corresponding function
     def process_command(self, command, message=None):
         try:
             if command == "error":

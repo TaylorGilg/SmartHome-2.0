@@ -12,7 +12,6 @@ class CameraIOT(IOTDevice):
         self.location = location
         print(f"Camera {id} initialized at location: {location}")
     
-    
     def process_command(self, command, message=None):
         """Process received command"""
         try:
@@ -97,3 +96,4 @@ class CameraIOT(IOTDevice):
         start_camera(camera_id, location, CAMERA_IP, port)
         
     
+    start_camera(camera_id, location, CAMERA_IP, port)

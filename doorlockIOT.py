@@ -1,6 +1,13 @@
+import logging
 from IOTdevice import IOTDevice
 from data.config import *
 import time
+
+logging.basicConfig(
+    filename='doorlock.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s'
+)
 
 class DoorLock(IOTDevice):
     def __init__(self, id, location="unknown"):
@@ -10,14 +17,16 @@ class DoorLock(IOTDevice):
         self._code = "0000"
         self._lock_time = "00:00"
         self.location = location
-        print(f"DoorLock {id} initialized at location: {location}")
+        logging.info(f"DoorLock {id} initialized at location: {location}")
     
     def set_state(self, state):
         try:
             if state == "on" or state == "off":    
                 self._state = state
+                logging.info(f"DoorLock {self.id}: State set to {state}")
                 return f"DoorLock {self.id}: State set to {state}"
             else:
+                logging.error(f"Error setting state: {e}")
                 raise Exception("invalid message", state)
         except Exception as e:
             raise e
@@ -108,15 +117,18 @@ class DoorLock(IOTDevice):
             return mapper[command](message) if message else mapper[command]()
         
             if command not in mapper:
+                logging.warning(f"Unknown command '{command}' received by DoorLock {self.id}")
                 return f"ERROR: Unknown command '{command}'"
-                
+
             result = mapper[command](message) if message else mapper[command]()
-            print(f"Command result for {self.id}: {result}")
+            logging.info(f"Command '{command}' executed successfully on DoorLock {self.id} with result: {result}")
             return str(result)
-            
+
         except Exception as e:
+            logging.error(f"Error executing command '{command}' on DoorLock {self.id}: {e}")
             return f"ERROR from {self.id}: {str(e)}"
             
+
 
 def start_doorlock(lock_id, location, ip, port):
     try:

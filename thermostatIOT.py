@@ -11,6 +11,7 @@ logging.basicConfig(
 )
 
 class thermostatIOT(IOTDevice):
+
     def __init__(self, id, location="unknown"):
         super().__init__(id)
         self.id = id
@@ -18,7 +19,7 @@ class thermostatIOT(IOTDevice):
         self._temperature = self.generate_random_temperature()
         self._fan_speed = self.map_fan_speed('med')
         self._state = "off"
-        self._status = "off"
+        self._status = "off" 
         self._time_thermostate = "00:00"
         logging.info(f"Thermostat {id} initialized at location: {location}")
         logging.info(f"Initial Temperature: {self._temperature}°F")
@@ -68,7 +69,7 @@ class thermostatIOT(IOTDevice):
                 raise Exception("invalid message", status)
         except Exception as e:
             raise e
-    
+
     def turn_on_heater(self):
         try:
             self.set_state("on")
@@ -161,7 +162,6 @@ class thermostatIOT(IOTDevice):
         try:
             if command == "error":
                 return f"ERROR: {message}"
-                
             mapper = {
                 'get_status': self.get_status,
                 'get_state': self.get_state,
@@ -172,6 +172,7 @@ class thermostatIOT(IOTDevice):
                 'turn_off': self.turn_off_thermostat,
                 'get_location': self.get_location,
                 'set_location': self.set_location,
+                'get_blockchain_data': self.get_blockchain_data
             }
             
             if command not in mapper:
@@ -192,7 +193,6 @@ def start_thermostat(therm_id, location, ip, port):
         print(f"Setting up Thermostat {therm_id} at {location}")
         thermostat.init_sockets(ip, port)
         print(f"Thermostat {therm_id} listening on {ip}:{port}")
-
         while True:
             try:
                 response, addr = thermostat.receive()
@@ -223,9 +223,10 @@ if __name__ == "__main__":
         print("Usage: python thermostatIOT.py <therm_id> <location> <port>")
         print("Example: python thermostatIOT.py therm1 'Living Room' 8087")
         sys.exit(1)
-        
+
     therm_id = sys.argv[1]
     location = sys.argv[2]
     port = int(sys.argv[3])
-    
+
     start_thermostat(therm_id, location, THERMOSTAT_IP, port)
+    

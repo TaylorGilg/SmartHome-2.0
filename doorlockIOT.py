@@ -30,7 +30,7 @@ class DoorLock(IOTDevice):
                 raise Exception("invalid message", state)
         except Exception as e:
             raise e
-            
+
     def set_status(self, status):
         try:
             if self._state == "off": 
@@ -69,7 +69,7 @@ class DoorLock(IOTDevice):
                 raise Exception("invalid message", lock_time)
         except Exception as e:
             raise e
-
+    
     def get_state(self):
         return f"DoorLock {self.id}: {self._state}"
     
@@ -87,7 +87,7 @@ class DoorLock(IOTDevice):
         if self._state == "off": 
             raise Exception("off")
         return f"DoorLock {self.id}: Lock time is {self._lock_time}"
-
+    
     def get_location(self):
         return f"DoorLock {self.id} location: {self.location}"
     
@@ -95,11 +95,12 @@ class DoorLock(IOTDevice):
         self.location = new_location
         return f"DoorLock {self.id} location set to {new_location}"
     
+    # Searches for received message from Hub and calls it's corresponding function
     def process_command(self, command, message=None):
         try:
             if command == "error":
                 return f"ERROR: {message}"
-
+            
             mapper = {
                 'set_state': self.set_state,
                 'set_status': self.set_status,
@@ -110,9 +111,11 @@ class DoorLock(IOTDevice):
                 'get_keyless_entry': self.get_keyless_entry,
                 'get_lock_time': self.get_lock_time,
                 'get_location': self.get_location,
-                'set_location': self.set_location
+                'set_location': self.set_location,
+                'get_blockchain_data': self.get_blockchain_data
             }
-
+            return mapper[command](message) if message else mapper[command]()
+        
             if command not in mapper:
                 logging.warning(f"Unknown command '{command}' received by DoorLock {self.id}")
                 return f"ERROR: Unknown command '{command}'"
@@ -124,17 +127,16 @@ class DoorLock(IOTDevice):
         except Exception as e:
             logging.error(f"Error executing command '{command}' on DoorLock {self.id}: {e}")
             return f"ERROR from {self.id}: {str(e)}"
+            
 
 
 def start_doorlock(lock_id, location, ip, port):
     try:
         lock = DoorLock(lock_id, location)
         lock.setEncryption(KEY, upperCaseAll=False, removeSpace=False)    
-        
         print(f"Setting up DoorLock {lock_id} at {location}")
         lock.init_sockets(ip, port)
         print(f"DoorLock {lock_id} listening on {ip}:{port}")
-
         while True:
             try:
                 response, addr = lock.receive()
@@ -152,11 +154,11 @@ def start_doorlock(lock_id, location, ip, port):
                 error_msg = f"Error in DoorLock {lock_id}: {str(e)}"
                 print(error_msg)
                 lock.send(error_msg, (HUB_IP, HUB_PORT))
-        
-        print(f"DoorLock {lock_id} shutting down...")
-        
+
+            print(f"DoorLock {lock_id} shutting down...")
+
     except Exception as e:
-        print(f"Fatal error in DoorLock {lock_id}: {str(e)}")
+            print(f"Fatal error in DoorLock {lock_id}: {str(e)}")
 
 if __name__ == '__main__':
     import sys
@@ -169,5 +171,5 @@ if __name__ == '__main__':
     lock_id = sys.argv[1]
     location = sys.argv[2]
     port = int(sys.argv[3])
-    
+
     start_doorlock(lock_id, location, DOORLOCK_IP, port)

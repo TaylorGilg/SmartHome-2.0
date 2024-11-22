@@ -1,5 +1,6 @@
 from communicator import Communicator
 from socket import *
+from blockchain import Blockchain
 import time
 
 class IOTDevice(Communicator):
@@ -10,9 +11,7 @@ class IOTDevice(Communicator):
         print(f"Initializing {device_type} device {id} at location: {location}")
 
     def send(self, message, recipient, data_type=None, TCP_socket=None, server_addr=None):
-        """
-        Enhanced send method with device identification
-        """
+        """Enhanced send method with device identification"""
         try:
             # Log the outgoing message
             self.blockchain.new_interaction(
@@ -26,7 +25,6 @@ class IOTDevice(Communicator):
                     "status": "sent"
                 }
             )
-
             if data_type == 'image':            
                 header = data_type + ":" + str(len(message))
                 cipher_header = self.encrypt(header).encode("utf-8")
@@ -54,17 +52,15 @@ class IOTDevice(Communicator):
             raise
 
     def receive(self):
-        """
-        Enhanced receive method with device identification
-        """
+        """Enhanced receive method with device identification"""
         try:
             data, addr = self.commSocket.recvfrom(self.buf)
             msg = str(data, "utf-8")
             plain_text = self.decrypt(msg)
-            
+                
             if plain_text.startswith("text:"):
                 plain_text = plain_text[5:]
-            
+                
             # Log the incoming message
             self.blockchain.new_interaction(
                 sender=str(addr),
@@ -77,18 +73,28 @@ class IOTDevice(Communicator):
                     "status": "received"
                 }
             )
-            
             print(f"{self.device_type} {self.id} received: {plain_text}")
             return plain_text, addr
-            
         except Exception as e:
             print(f"Error in receive for {self.device_type} {self.id}: {e}")
             return f"Error: {str(e)}", addr
 
+    def init_sockets(self, ip, port):
+        """Initialize device sockets with better logging"""
+        try:
+            self.setIP(ip)
+            self.setPort(port)
+            UDP_socket = socket(AF_INET, SOCK_DGRAM)
+            UDP_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+            UDP_socket.bind((self.ip, self.port))
+            self.setSocket(UDP_socket)
+            print(f"{self.device_type} {self.id} initialized socket on {ip}:{port}")
+        except Exception as e:
+            print(f"Error initializing socket for {self.device_type} {self.id}: {e}")
+            raise
+
     def parse_command(self, command):
-        """
-        Enhanced command parsing with better error handling
-        """
+        """Enhanced command parsing with better error handling"""
         try:
             if isinstance(command, tuple):
                 command = command[0]
@@ -109,32 +115,16 @@ class IOTDevice(Communicator):
         except Exception as e:
             print(f"Error parsing command for {self.device_type} {self.id}: {e}")
             return "error", str(e)
-
-    def init_sockets(self, ip, port):
-        """
-        Initialize device sockets with better logging
-        """
-        try:
-            self.setIP(ip)
-            self.setPort(port)
-            UDP_socket = socket(AF_INET, SOCK_DGRAM)
-            UDP_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-            UDP_socket.bind((self.ip, self.port))
-            self.setSocket(UDP_socket)
-            print(f"{self.device_type} {self.id} initialized socket on {ip}:{port}")
-        except Exception as e:
-            print(f"Error initializing socket for {self.device_type} {self.id}: {e}")
-            raise
-
+        
     def get_location(self):
         """Get device location"""
         return f"{self.device_type} {self.id} location: {self.location}"
-
+    
     def set_location(self, new_location):
         """Set device location"""
         self.location = new_location
         return f"{self.device_type} {self.id} location set to {new_location}"
-
+    
     def get_info(self):
         """Get device information"""
         return {
@@ -144,3 +134,24 @@ class IOTDevice(Communicator):
             "ip": self.ip,
             "port": self.port
         }
+        
+        return new_command, message
+    
+    #takes in resolved chain to update personal device ledger 
+    def update_blockchain(self, chain_data):
+        try:
+            #parsing input
+            new_chain = json.loads(chain_data)
+            #checks if new chain has all valid block hashes and proof of work
+            if self.blockchain.is_valid_chain(new_chain):
+                #replaces old blockchain with new one
+                self.blockchain.chain = new_chain
+                return "Blockchain update successfully"
+            else:
+                return "Recieved invalid blockchain"
+        except Exception as e:
+            return f"Error updating blockchain: {str(e)}"
+        
+    
+
+

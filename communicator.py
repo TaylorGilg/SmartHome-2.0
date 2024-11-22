@@ -1,10 +1,11 @@
 from Vigenere import VigenereCipher
 from Caesar import CaesarCipher
-from Blockchain import Blockchain
+from blockchain import Blockchain
 import time
 from socket import *
 
 class Communicator:
+    
     def __init__(self, id):
         self.id = id
         self.ip = None
@@ -67,10 +68,14 @@ class Communicator:
                 cipher_text = self.encrypt(message).encode("utf-8")
                 self.commSocket.sendto(cipher_text, recipient)
                 print(f"Sent message: {message} to {recipient}")
-            
         except Exception as e:
             print(f"Error in send: {e}")
             raise
+                
+        except Exception as e:
+                print(f"Error in send: {e}")
+                raise
+
 
     def receive(self):
         """Enhanced receive method"""
@@ -101,7 +106,7 @@ class Communicator:
         except Exception as e:
             print(f"Error in receive: {e}")
             return f"Error: {str(e)}", addr
-
+        
     def parse_command(self, command):
         """Parse received command from Hub"""
         try:
@@ -128,7 +133,7 @@ class Communicator:
         except Exception as e:
             print(f"Error parsing command: {e}")
             return "error", str(e)
-
+        
     def init_sockets(self, ip, port):
         """Initialize socket"""
         try:
@@ -139,14 +144,13 @@ class Communicator:
             UDP_socket.bind((self.ip, self.port))
             self.setSocket(UDP_socket)
             print(f"Socket initialized on {ip}:{port}")
+
         except Exception as e:
             print(f"Error initializing socket: {e}")
             raise
 
     def get_blockchain_data(self):
-        """
-        Returns formatted blockchain data for UI display or analysis
-        """
+        """Returns formatted blockchain data for UI display or analysis"""
         try:
             blockchain_data = []
             for block in self.blockchain.chain:
@@ -159,21 +163,20 @@ class Communicator:
                 }
                 blockchain_data.append(block_data)
             return blockchain_data
+        
         except Exception as e:
             print(f"Error getting blockchain data: {e}")
             return []
 
     def verify_blockchain(self):
-        """
-        Verifies the integrity of the blockchain
-        """
+        """Verifies the integrity of the blockchain"""
         try:
             return self.blockchain.is_valid_chain()
         except Exception as e:
             print(f"Error verifying blockchain: {e}")
             return False
 
-    # Setters
+    # setters
     def setIP(self, ipaddr):
         self.ip = ipaddr
 
@@ -183,8 +186,13 @@ class Communicator:
     def setSocket(self, socket):
         self.commSocket = socket
         
-    def setEncryption(self, key, removeSpace=True, encryptSpace=False, 
-                     encryptSymbol=False, upperCaseAll=True, reverseText=False):
+    def setEncryption(self, key,
+        removeSpace=True,          # Remove space
+        encryptSpace=False,         # Encrypt Space
+        encryptSymbol=False,        # Encypt Symbol
+        upperCaseAll=True,        # Uppercase ALL
+        reverseText = False    # Reverse Plain text
+    ):
         try:
             self.enableEncyption = True
             self.cipher = CaesarCipher(key)
@@ -194,6 +202,7 @@ class Communicator:
             self.cipher.reverseText = reverseText
             self.cipher.encryptSymbol = encryptSymbol
             print("Encryption settings configured")
+
         except Exception as e:
             print(f"Error setting encryption: {e}")
             raise
@@ -201,7 +210,7 @@ class Communicator:
     def process_command(self):
         """Base method for command processing"""
         pass
-
+        
     def compress_img(self, img_data):
         return img_data
     

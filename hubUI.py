@@ -8,17 +8,22 @@ class HubUI:
         self.hub = hub
         self.root = Tk()
         self.root.title("IoT Hub")
+        
         self.setup_ui()
 
     def setup_ui(self):
-        # Device Registration Frame
+         # Device Registration Frame
         reg_frame = ttk.LabelFrame(self.root, text="Device Registration")
         reg_frame.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
-
         Label(reg_frame, text="Device ID:").grid(row=0, column=0, padx=5, pady=5)
         Label(reg_frame, text="Device IP:").grid(row=1, column=0, padx=5, pady=5)
         Label(reg_frame, text="Device Port:").grid(row=2, column=0, padx=5, pady=5)
         Label(reg_frame, text="Location:").grid(row=3, column=0, padx=5, pady=5)
+
+        self.device_id_entry = Entry(reg_frame)
+        self.device_ip_entry = Entry(reg_frame)
+        self.device_port_entry = Entry(reg_frame)
+        self.device_location_entry = Entry(reg_frame)
 
         self.device_id_entry = Entry(reg_frame)
         self.device_ip_entry = Entry(reg_frame)
@@ -30,10 +35,9 @@ class HubUI:
         self.device_port_entry.grid(row=2, column=1, padx=5, pady=5)
         self.device_location_entry.grid(row=3, column=1, padx=5, pady=5)
 
-        # Buttons
+         # Buttons
         button_frame = ttk.Frame(self.root)
         button_frame.grid(row=1, column=0, columnspan=2, pady=10)
-
         self.add_device_button = Button(button_frame, text="Add Device", command=self.add_device)
         self.send_button = Button(button_frame, text="Send Message", command=self.open_send_message_popup)
         self.view_blockchain_button = Button(button_frame, text="View Blockchain", command=self.view_blockchain)
@@ -42,7 +46,7 @@ class HubUI:
         self.send_button.pack(side='left', padx=5)
         self.view_blockchain_button.pack(side='left', padx=5)
 
-        # Message Display
+         # Message Display
         self.receive_text = Text(self.root, height=10, width=50)
         self.device_list_text = Text(self.root, height=5, width=50)
         self.receive_text.config(state="disabled")
@@ -97,6 +101,7 @@ class HubUI:
         popup.title("Send Message")
         popup.geometry("400x300")
 
+        popup.geometry("400x300")
         # Get list of registered devices
         devices = list(self.hub._authenticated_devices.keys())
         
@@ -114,7 +119,6 @@ class HubUI:
         Label(popup, text="Parameter (optional):").grid(row=2, column=0, padx=5, pady=5)
         param_entry = Entry(popup)
         param_entry.grid(row=2, column=1, padx=5, pady=5)
-
         # Help text
         help_text = Text(popup, height=8, width=40)
         help_text.grid(row=3, column=0, columnspan=2, padx=5, pady=5)
@@ -124,7 +128,6 @@ class HubUI:
                         "Thermostats: get_temperature, set_temperature, get_status\n\n"
                         "Use semicolon (;) to separate command and parameter")
         help_text.config(state="disabled")
-
         # Send button
         send_button = Button(popup, text="Send", 
                            command=lambda: self.send_message_popup(
@@ -182,14 +185,11 @@ class HubUI:
         blockchain_window = Toplevel(self.root)
         blockchain_window.title("Blockchain View")
         blockchain_window.geometry("800x600")
-
         blockchain_text = Text(blockchain_window, wrap="word", height=30, width=90)
         scrollbar = Scrollbar(blockchain_window, command=blockchain_text.yview)
         blockchain_text.configure(yscrollcommand=scrollbar.set)
-
         blockchain_text.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-
         blockchain_data = self.hub.get_blockchain_data()
         
         for block in blockchain_data:
@@ -203,7 +203,6 @@ class HubUI:
                 blockchain_text.insert(END, f"To: {interaction['recipient']}\n")
                 blockchain_text.insert(END, f"Data: {interaction['data']}\n")
                 blockchain_text.insert(END, "-" * 50 + "\n")
-
         blockchain_text.config(state="disabled")
 
     def on_close(self):

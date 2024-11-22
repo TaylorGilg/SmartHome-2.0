@@ -10,9 +10,8 @@ logging.basicConfig(
 )
 
 class CameraIOT(IOTDevice):
-    """
-    Simulate camera IOT with support for multiple instances
-    Each camera can be identified by a unique ID (e.g., 'cam1', 'cam2', 'outdoor_cam', etc.)
+    """Simulate camera IOT with support for multiple instances.
+        Each camera can be identified by a unique ID (e.g., 'cam1', 'cam2', 'outdoor_cam', etc.)
     """
     def __init__(self, id, location="unknown"):
         super().__init__(id)
@@ -28,7 +27,8 @@ class CameraIOT(IOTDevice):
                 'get_status': self.get_status,
                 'set_status': self.set_status,
                 'get_location': self.get_location,
-                'set_location': self.set_location
+                'set_location': self.set_location,
+                'get_blockchain_data': self.get_blockchain_data
             }
             if command not in mapper:
                 logging.warning(f"Camera {self.id}: Unknown command '{command}'")
@@ -68,11 +68,11 @@ class CameraIOT(IOTDevice):
             logging.error(f"Camera {self.id}: Error setting location: {e}")
             raise e
 
-# Example of running multiple cameras
-def start_camera(camera_id, location, ip, port):
-    try:
-        camera = CameraIOT(camera_id, location)
-        camera.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
+    # Example of running multiple cameras
+    def start_camera(camera_id, location, ip, port):
+        try:
+            camera = CameraIOT(camera_id, location)
+            camera.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
 
         logging.info(f"Camera {camera_id}: Initialized at {location}, listening on {ip}:{port}")
         camera.init_sockets(ip, port)

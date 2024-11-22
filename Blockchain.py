@@ -9,7 +9,7 @@ class Blockchain:
         self.current_interactions = []
         self.new_block(previous_hash=1, proof=100)
 
-# Method to create a new blocjk with a given proof and the previous hash on block to add it to the chain.
+# Method to create a new block with a given proof and the previous hash on block to add it to the chain.
     def new_block(self, proof, previous_hash=None):
         block = {
             'index': len(self.chain) + 1,
@@ -30,7 +30,7 @@ class Blockchain:
             'data': data,
         })
         return self.last_block['index'] + 1
-
+    
 # Returns the last block of chain.
     @property
     def last_block(self):
@@ -44,7 +44,6 @@ class Blockchain:
     
 # Proof of Work Algorithm: First find a number p' such that hash(pp') contains leading 4 zeroes. P is previous proof.
     def proof_of_work(self, last_proof):
-       
         proof = 0
         while self.valid_proof(last_proof, proof) is False:
             proof += 1
@@ -56,19 +55,16 @@ class Blockchain:
         guess = f'{last_proof}{proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
-
+    
 #  Determine if a given blockchain is valid by checking hash linkage and proofs    
     def is_valid_chain(self):
         for i in range(1, len(self.chain)):
             current_block = self.chain[i]
             previous_block = self.chain[i - 1]
-
             # Check that the hash of the block is correct
             if current_block['previous_hash'] != self.hash(previous_block):
                 return False
-
             # Check that the Proof of Work is correct
             if not self.valid_proof(previous_block['proof'], current_block['proof']):
                 return False
-
         return True

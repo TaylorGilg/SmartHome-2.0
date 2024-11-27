@@ -1,6 +1,6 @@
 from Vigenere import VigenereCipher
 from Caesar import CaesarCipher
-from blockchain import Blockchain
+from Blockchain import Blockchain
 import time
 from socket import *
 

@@ -2,6 +2,7 @@ import logging
 from IOTdevice import IOTDevice
 from data.config import *
 import time
+import threading
 
 logging.basicConfig(
     filename='doorlock.log',
@@ -11,7 +12,7 @@ logging.basicConfig(
 
 class DoorLock(IOTDevice):
     def __init__(self, id, location="unknown"):
-        super().__init__(id)
+        super().__init__(id, "DoorLock", location)
         self._state = "off"
         self._status = "unlocked"
         self._code = "0000"
@@ -74,7 +75,7 @@ class DoorLock(IOTDevice):
         return f"DoorLock {self.id}: {self._state}"
     
     def get_status(self):
-        if self._state == "off": 
+        if self._status == "off": 
             raise Exception("off")
         return f"DoorLock {self.id}: {self._status}"
     
@@ -133,7 +134,14 @@ class DoorLock(IOTDevice):
 def start_doorlock(lock_id, location, ip, port):
     try:
         lock = DoorLock(lock_id, location)
-        lock.setEncryption(KEY, upperCaseAll=False, removeSpace=False)    
+        lock.setEncryption(KEY, upperCaseAll=False, removeSpace=False)   
+
+        #start TCP server on seperate thread for consensus handling
+        tcp_thread = threading.Thread(target=lock.start_TCP)
+        tcp_thread.daemon = True #thread ends when program exits
+        tcp_thread.start() #start thread
+        print(f"Doorlock {lock.id}: TCP server started for blockchain handling.")
+
         print(f"Setting up DoorLock {lock_id} at {location}")
         lock.init_sockets(ip, port)
         print(f"DoorLock {lock_id} listening on {ip}:{port}")
@@ -172,4 +180,5 @@ if __name__ == '__main__':
     location = sys.argv[2]
     port = int(sys.argv[3])
 
+    logging.info(f"Starting Doorlock with ID: {lock_id}, Location: {location}, Port: {port}")
     start_doorlock(lock_id, location, DOORLOCK_IP, port)

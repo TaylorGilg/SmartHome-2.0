@@ -2,6 +2,7 @@ import logging
 from IOTdevice import IOTDevice
 from data.config import *
 import time
+import threading
 
 logging.basicConfig(
     filename='camera.log',
@@ -14,7 +15,7 @@ class CameraIOT(IOTDevice):
         Each camera can be identified by a unique ID (e.g., 'cam1', 'cam2', 'outdoor_cam', etc.)
     """
     def __init__(self, id, location="unknown"):
-        super().__init__(id)
+        super().__init__(id, "Camera", location)
         self.status = "live"
         self.location = location
         logging.info(f"Camera {id} initialized at location: {location}")
@@ -69,34 +70,40 @@ class CameraIOT(IOTDevice):
             raise e
 
     # Example of running multiple cameras
-    def start_camera(camera_id, location, ip, port):
+def start_camera(camera_id, location, ip, port):
         try:
             camera = CameraIOT(camera_id, location)
             camera.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
 
-        logging.info(f"Camera {camera_id}: Initialized at {location}, listening on {ip}:{port}")
-        camera.init_sockets(ip, port)
+            #start TCP server on seperate thread for consensus handling
+            tcp_thread = threading.Thread(target=camera.start_TCP)
+            tcp_thread.daemon = True #thread ends when program exits
+            tcp_thread.start() #start thread
+            print(f"Camera {camera.id}: TCP server started for blockchain handling.")
 
-        while True:
-            try:
-                response, addr = camera.receive()
-                logging.info(f"Camera {camera_id}: Received message: {response} from {addr}")
-                if response == "exit":
-                    break
+            logging.info(f"Camera {camera_id}: Initialized at {location}, listening on {ip}:{port}")
+            camera.init_sockets(ip, port)
 
-                command, message = camera.parse_command(response)
-                output = camera.process_command(command, message)
+            while True:
+                try:
+                    response, addr = camera.receive()
+                    logging.info(f"Camera {camera_id}: Received message: {response} from {addr}")
+                    if response == "exit":
+                        break
 
-                logging.info(f"Camera {camera_id}: Sending response: {output}")
-                camera.send(output, (HUB_IP, HUB_PORT))
-            except Exception as e:
-                error_msg = f"Error in Camera {camera_id}: {str(e)}"
-                logging.error(error_msg)
-                camera.send(error_msg, (HUB_IP, HUB_PORT))
+                    command, message = camera.parse_command(response)
+                    output = camera.process_command(command, message)
 
-        logging.info(f"Camera {camera_id}: Shutting down...")
-    except Exception as e:
-        logging.critical(f"Fatal error in Camera {camera_id}: {str(e)}")
+                    logging.info(f"Camera {camera_id}: Sending response: {output}")
+                    camera.send(output, (HUB_IP, HUB_PORT))
+                except Exception as e:
+                    error_msg = f"Error in Camera {camera_id}: {str(e)}"
+                    logging.error(error_msg)
+                    camera.send(error_msg, (HUB_IP, HUB_PORT))
+
+                logging.info(f"Camera {camera_id}: Shutting down...")
+        except Exception as e:
+            logging.critical(f"Fatal error in Camera {camera_id}: {str(e)}")
 
 
 if __name__ == "__main__":
@@ -111,7 +118,7 @@ if __name__ == "__main__":
         camera_id = sys.argv[1]
         location = sys.argv[2]
         port = int(sys.argv[3])
-        logging.info(f"Starting camera with ID: {camera_id}, Location: {location}, Port: {port}")
+        logging.info(f"Starting Camera with ID: {camera_id}, Location: {location}, Port: {port}")
         start_camera(camera_id, location, CAMERA_IP, port)
     except Exception as e:
         logging.critical(f"Fatal error starting Camera: {str(e)}")

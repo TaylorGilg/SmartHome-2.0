@@ -3,6 +3,7 @@ from IOTdevice import IOTDevice
 import random, time
 from datetime import datetime
 from data.config import *
+import threading
 
 logging.basicConfig(
     filename='thermostat.log',
@@ -13,7 +14,7 @@ logging.basicConfig(
 class thermostatIOT(IOTDevice):
 
     def __init__(self, id, location="unknown"):
-        super().__init__(id)
+        super().__init__(id, "Thermostat", location)
         self.id = id
         self.location = location
         self._temperature = self.generate_random_temperature()
@@ -23,7 +24,7 @@ class thermostatIOT(IOTDevice):
         self._time_thermostate = "00:00"
         logging.info(f"Thermostat {id} initialized at location: {location}")
         logging.info(f"Initial Temperature: {self._temperature}°F")
-    
+
     def get_temperature(self):
         return f"Thermostat {self.id}: {str(self._temperature)}°F"
     
@@ -176,19 +177,29 @@ class thermostatIOT(IOTDevice):
             }
             
             if command not in mapper:
+                logging.warning(f"Unknown command '{command}' received by Thermostat {self.id}")
                 return f"ERROR: Unknown command '{command}'"
                 
             result = mapper[command](message) if message else mapper[command]()
-            print(f"Command result for {self.id}: {result}")
+            logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
             return str(result)
             
         except Exception as e:
+            logging.error(f"Error executing command '{command}' on Thermostat {self.id}: {e}")
             return f"ERROR from {self.id}: {str(e)}"
 
 def start_thermostat(therm_id, location, ip, port):
     try:
+
         thermostat = thermostatIOT(therm_id, location)
         thermostat.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
+
+        #start TCP server on seperate thread for consensus handling
+        tcp_thread = threading.Thread(target=thermostat.start_TCP)
+        tcp_thread.daemon = True #thread ends when program exits
+        tcp_thread.start() #start thread
+        print(f"Thermostat {thermostat.id}: TCP server started for blockchain handling.")
+
         
         print(f"Setting up Thermostat {therm_id} at {location}")
         thermostat.init_sockets(ip, port)
@@ -228,5 +239,7 @@ if __name__ == "__main__":
     location = sys.argv[2]
     port = int(sys.argv[3])
 
+    logging.info(f"Starting Thermostat with ID: {therm_id}, Location: {location}, Port: {port}")
     start_thermostat(therm_id, location, THERMOSTAT_IP, port)
+    
     

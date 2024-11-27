@@ -7,7 +7,7 @@ import io
 from PIL import Image
 import traceback
 from data.config import *
-#from blockchain import Blockchain, Block #import block chain classes
+import json
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +30,13 @@ class Hub(Communicator):
         self._ip = ip
         self._port = int(port)
         self._buf = 1024 * 2
+
+        #setting up log file for testing blockchain ledgers
+        self.logger = logging.getLogger("Hub")
+        file_handler = logging.FileHandler("hub_blockchain_log.txt")
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+        self.logger.addHandler(file_handler)
+        self.logger.setLevel(logging.INFO)
         
         self.init_sockets()
         logging.info(f"Hub '{self.name}' initialized at {ip}:{port}")
@@ -198,34 +205,45 @@ class Hub(Communicator):
         else:
             return longest_chain
 
-    #takes in longest valid chain to and updates ledgers of all authenticated devices to match
+    #takes in resolved chain and sends it out to devices via TCP connection
     def update_devices(self, resolved_chain):
         #iterating over every authenticated device
         for device_id, (device_ip, device_port) in self._authenticated_devices.items():
             try: 
-                #up to 3 tries to resend data for successful update
-                retries = 3
-                while retries > 0:
-                    #sending message to device to update blockchain with resolved chain
-                    self.send(f"update_blockchain;{json.dumps(resolved_chain)}", (device_ip, device_port))
-                    #waits for an acknowledgment response (successfully updated) from device (stops waiting after 5 sec)
-                    ack, _= self.recieve(timeout=5)
-                    if ack == "ACK":
-                        break
-                    retries -= 1
-                if retries == 0:
-                    print(f"{device_id} failed to update after multiple tries.")
-            except Exception as e: 
-                print(f"Error updating blockchain for {device_id}: (e)")
+                with socket(AF_INET, SOCK_STREAM) as s: #creates TCP socket
+                    s.connect((device_ip, device_port)) #connecting socket to device ip and port
+                    message = f"UPDATE_BLOCKCHAIN;{json.dump(resolved_chain)}" #sending command that devices can parse
+                    s.sendall(message.encode("utf-8")) #sends message
+                    response = s.recv(1024).decode("utf-8") #receives response from device
+                    if response.startswith("ACK"): #acknowledgment message from device means success
+                        print(f"Device {device_id} successfully updated blockchain")
+                    else: #reponse besides acknowledgment means failure to update device
+                        print(f"Device {device_id} failed to update {response}")
+            except Exception as e:
+                print(f"Error updating blockchain for {device_id}: {e}")
 
     def consensus_protocol(self):
         while True:
+            self.logger.info("Starting consensus protocol...")
             #calls method to request blockchain state of all devices 
             blockchains = self.request_blockchains()
             #calls method to resolve differing ledgers
             resolved_chain = self.solve_conflicts(blockchains)
             #calls method to update all devices with consensus
             self.update_devices(resolved_chain)
+            self.logger.info("Consensus protocol completed.")
+
+            self.logger.info("Consensus Result: ")
+            #log the resolved blockchain to the file
+            with open("hub_blockchain_log.txt", "a") as file:
+                for block in resolved_chain:
+                    file.write(f"Block {block['index']}:\n")
+                    file.write(f"Timestamp: {block['timestamp']}\n")
+                    file.write(f"Previous Hash: {block['previous_hash']}\n")
+                    file.write(f"Proof: {block['proof']}\n")
+                    file.write(f"Interactions: {block['interactions']}\n")
+                file.write("\n")
+
             #runs this method every 60 sec
             time.sleep(60) 
 

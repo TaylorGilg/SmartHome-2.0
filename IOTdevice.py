@@ -1,14 +1,65 @@
 from communicator import Communicator
 from socket import *
-from blockchain import Blockchain
+from Blockchain import Blockchain
 import time
+import json
+import logging
 
 class IOTDevice(Communicator):
     def __init__(self, id, device_type="unknown", location="unknown"):
         super().__init__(id)
         self.device_type = device_type
         self.location = location
-        print(f"Initializing {device_type} device {id} at location: {location}")
+        self.blockchain = Blockchain() #each device has its own blockchain
+        print(f"Initializing {self.device_type} device {self.id} at location: {self.location}")
+
+        #setting up log file for testing blockchain
+        self.logger = logging.getLogger(f"{self.device_type}_{self.id}")
+        file_handler = logging.FileHandler(f"{self.device_type}_{self.id}_blockchain_log.txt")
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+        self.logger.addHandler(file_handler)
+        self.logger.setLevel(logging.INFO)
+
+    def display_blockchain(self):
+        #display and log blockchain ledger of device in txt file for testing
+        self.logger.info(f"Blockchain for {self.device_type} ({self.id}): \n")
+        for block in self.blockchain.chain: #displaying each block in device's chain
+            self.logger.info(f"Block {block['index']}: \n")
+            self.logger.info(f"Timestamp: {block['timestamp']} \n")
+            self.logger.info(f"Previous Hash: {block['previous_hash']} \n")
+            self.logger.info(f"Proof: {block['proof']} \n")
+            self.logger.info(f"Interactions: {block['interactions']} \n")
+        self.logger.info("\n")
+        
+
+    def start_TCP(self):
+        #start a tcp server to listen for blockchain consensus
+        try: #establishing TCP connection from device
+            TCP_socket = socket(AF_INET, SOCK_STREAM)
+            TCP_socket.bind((self.ip, self.port))
+            TCP_socket.listen(1)
+            print(f"{self.id} is listening for TCP connections on {self.ip} on port {self.port}")
+
+            while True:
+                conn, addr = TCP_socket.accept()
+                try:
+                    request = conn.recv(1024).decode("utf-8")
+                    if request == "GET_BLOCKCHAIN_DATA": #if message matches this command
+                        #respond with blockchain data
+                        response = json.dumps(self.blockchain.chain).encode("utf-8")
+                        conn.sendall(response)
+                    elif request.startswith("UPDATE_BLOCKCHAIN;"): #if message begins with this command
+                        #parse message to take in resolved chain and update device's chain
+                        chain_data = request.split(";", 1)[1]
+                        update_response = self.update_blockchain(chain_data)
+                        conn.sendall(update_response.encode("utf-8"))
+                    else: #if message is not a recognized command
+                        conn.sendall(b"Error: Unknown blockchain request")
+                    conn.close()
+                except Exception as e: 
+                    print(f"Error handling TCP request: {e}")
+        except Exception as e: 
+            print(f"Error starting TCP server for {self.device_type} {self.id}: {e}")
 
     def send(self, message, recipient, data_type=None, TCP_socket=None, server_addr=None):
         """Enhanced send method with device identification"""
@@ -146,10 +197,14 @@ class IOTDevice(Communicator):
             if self.blockchain.is_valid_chain(new_chain):
                 #replaces old blockchain with new one
                 self.blockchain.chain = new_chain
-                return "Blockchain update successfully"
+                self.logger.info(f"{self.device_type} {self.id}: Blockchain updated successfully.")
+                self.display_blockchain()  #log the updated blockchain
+                return "ACK: Blockchain update successfully"          
             else:
-                return "Recieved invalid blockchain"
+                self.logger.error(f"{self.device_type} {self.id}: Recieved invalid blockchain.")
+                return "Error: Recieved invalid blockchain"
         except Exception as e:
+            self.logger.error(f"{self.device_type} {self.id}: Error updating blockchain: {e}")
             return f"Error updating blockchain: {str(e)}"
         
     

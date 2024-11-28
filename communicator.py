@@ -12,27 +12,27 @@ class Communicator:
         self.port = None
         self.commSocket = None
         self.cipher = None
-        self.enableEncyption = False
-        self.buf = 512
+        self.enableEncryption = False
+        self.buf = 1024
         self.blockchain = Blockchain()
         print(f"Communicator initialized with ID: {id}")
 
     def encrypt(self, message):
-        if self.enableEncyption: 
+        if self.enableEncryption: 
             encrypted_message = self.cipher.encrypt(message)
             return encrypted_message
         else:
             return message
 
     def decrypt(self, encrypted_message):
-        if self.enableEncyption:
+        if self.enableEncryption:
             decrypted_message = self.cipher.decrypt(encrypted_message)
             return decrypted_message
         else:
             return encrypted_message
 
-    def send(self, message, recipient, data_type=None, TCP_socket=None, server_addr=None):
-        """Enhanced send method"""
+    def send(self, message, recipient):
+        """Send message using TCP"""
         try:
             # Log the outgoing message
             self.blockchain.new_interaction(
@@ -46,44 +46,30 @@ class Communicator:
                 }
             )
 
-            if data_type == 'image':            
-                header = data_type + ":" + str(len(message))
-                cipher_header = self.encrypt(header).encode("utf-8")
-                self.commSocket.sendto(cipher_header, recipient)
-                
-                response = self.receive()
-                if response[0] == 'ack':
-                    TCP_socket.connect(server_addr)
-                    TCP_socket.sendall(message)
-                
-                response = self.receive()
-                if response[0] == 'done':
-                    TCP_socket.close()
-            else:
-                # Format message
-                if not isinstance(message, bytes) and not message.startswith(("text:", "image:")):
-                    message = "text:" + str(message)
-                
-                # Encrypt and send
-                cipher_text = self.encrypt(message).encode("utf-8")
-                self.commSocket.sendto(cipher_text, recipient)
+            # Format message
+            if not isinstance(message, bytes):
+                message = "text:" + str(message)
+            
+            # Encrypt message
+            cipher_text = self.encrypt(message).encode("utf-8")
+
+            # Open a TCP connection and send the message
+            with socket(AF_INET, SOCK_STREAM) as s:
+                s.connect(recipient)
+                s.sendall(cipher_text)
                 print(f"Sent message: {message} to {recipient}")
+            
         except Exception as e:
             print(f"Error in send: {e}")
             raise
-                
-        except Exception as e:
-                print(f"Error in send: {e}")
-                raise
-
 
     def receive(self):
-        """Enhanced receive method"""
+        """Receive message using TCP"""
         try:
-            data, addr = self.commSocket.recvfrom(self.buf)
-            msg = str(data, "utf-8")
-            plain_text = self.decrypt(msg)
-            
+            conn, addr = self.commSocket.accept()  # Accept an incoming connection
+            data = conn.recv(self.buf).decode("utf-8")  # Receive data
+            plain_text = self.decrypt(data)
+
             # Remove text: prefix if present
             if plain_text.startswith("text:"):
                 plain_text = plain_text[5:]
@@ -101,11 +87,12 @@ class Communicator:
             )
             
             print(f"Received message: {plain_text} from {addr}")
+            conn.close()
             return plain_text, addr
-            
+
         except Exception as e:
             print(f"Error in receive: {e}")
-            return f"Error: {str(e)}", addr
+            return f"Error: {str(e)}", None
         
     def parse_command(self, command):
         """Parse received command from Hub"""
@@ -135,15 +122,16 @@ class Communicator:
             return "error", str(e)
         
     def init_sockets(self, ip, port):
-        """Initialize socket"""
+        """Initialize TCP socket"""
         try:
             self.setIP(ip)
             self.setPort(port)
-            UDP_socket = socket(AF_INET, SOCK_DGRAM)
-            UDP_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-            UDP_socket.bind((self.ip, self.port))
-            self.setSocket(UDP_socket)
-            print(f"Socket initialized on {ip}:{port}")
+
+            # Create and bind the TCP socket
+            self.commSocket = socket(AF_INET, SOCK_STREAM)
+            self.commSocket.bind((self.ip, self.port))
+            self.commSocket.listen(5)  # Listen for incoming connections
+            print(f"Socket initialized and listening on {ip}:{port}")
 
         except Exception as e:
             print(f"Error initializing socket: {e}")
@@ -176,25 +164,23 @@ class Communicator:
             print(f"Error verifying blockchain: {e}")
             return False
 
-    # setters
+    # Setters
     def setIP(self, ipaddr):
         self.ip = ipaddr
 
     def setPort(self, portNumber):
         self.port = portNumber
 
-    def setSocket(self, socket):
-        self.commSocket = socket
-        
     def setEncryption(self, key,
         removeSpace=True,          # Remove space
         encryptSpace=False,         # Encrypt Space
-        encryptSymbol=False,        # Encypt Symbol
+        encryptSymbol=False,        # Encrypt Symbol
         upperCaseAll=True,        # Uppercase ALL
-        reverseText = False    # Reverse Plain text
+        reverseText=False         # Reverse Plain text
     ):
+        """Configure encryption settings"""
         try:
-            self.enableEncyption = True
+            self.enableEncryption = True
             self.cipher = CaesarCipher(key)
             self.cipher.removeSpace = removeSpace
             self.cipher.encryptSpace = encryptSpace
@@ -212,7 +198,9 @@ class Communicator:
         pass
         
     def compress_img(self, img_data):
+        """Placeholder for image compression logic"""
         return img_data
     
     def decompress_img(self, compress_data):
+        """Placeholder for image decompression logic"""
         return compress_data

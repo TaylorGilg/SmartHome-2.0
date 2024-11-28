@@ -69,41 +69,44 @@ class CameraIOT(IOTDevice):
             logging.error(f"Camera {self.id}: Error setting location: {e}")
             raise e
 
-    # Example of running multiple cameras
 def start_camera(camera_id, location, ip, port):
-        try:
-            camera = CameraIOT(camera_id, location)
-            camera.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
+    """Start the camera with TCP communication."""
+    try:
+        camera = CameraIOT(camera_id, location)
+        camera.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
+        camera.init_sockets(ip, port)  # Initialize sockets first
 
-            #start TCP server on seperate thread for consensus handling
-            tcp_thread = threading.Thread(target=camera.start_TCP)
-            tcp_thread.daemon = True #thread ends when program exits
-            tcp_thread.start() #start thread
-            print(f"Camera {camera.id}: TCP server started for blockchain handling.")
+        # Start TCP server on a separate thread for blockchain handling
+        tcp_thread = threading.Thread(target=camera.start_TCP)
+        tcp_thread.daemon = True  # Thread ends when the program exits
+        tcp_thread.start()  # Start thread
+        print(f"Camera {camera.id}: TCP server started for blockchain handling.")
 
-            logging.info(f"Camera {camera_id}: Initialized at {location}, listening on {ip}:{port}")
-            camera.init_sockets(ip, port)
+        logging.info(f"Camera {camera_id}: Initialized at {location}, listening on {ip}:{port}")
+        while True:
+            try:
+                # Accept incoming TCP connections
+                conn, addr = camera.commSocket.accept()
+                response = conn.recv(4096).decode("utf-8")
+                logging.info(f"Camera {camera_id}: Received message: {response} from {addr}")
+                if response == "exit":
+                    break
 
-            while True:
-                try:
-                    response, addr = camera.receive()
-                    logging.info(f"Camera {camera_id}: Received message: {response} from {addr}")
-                    if response == "exit":
-                        break
+                command, message = camera.parse_command(response)
+                output = camera.process_command(command, message)
 
-                    command, message = camera.parse_command(response)
-                    output = camera.process_command(command, message)
+                logging.info(f"Camera {camera_id}: Sending response: {output}")
+                conn.sendall(output.encode("utf-8"))
+                conn.close()
+            except Exception as e:
+                error_msg = f"Error in Camera {camera_id}: {str(e)}"
+                logging.error(error_msg)
+                conn.sendall(error_msg.encode("utf-8"))
+                conn.close()
 
-                    logging.info(f"Camera {camera_id}: Sending response: {output}")
-                    camera.send(output, (HUB_IP, HUB_PORT))
-                except Exception as e:
-                    error_msg = f"Error in Camera {camera_id}: {str(e)}"
-                    logging.error(error_msg)
-                    camera.send(error_msg, (HUB_IP, HUB_PORT))
-
-                logging.info(f"Camera {camera_id}: Shutting down...")
-        except Exception as e:
-            logging.critical(f"Fatal error in Camera {camera_id}: {str(e)}")
+        logging.info(f"Camera {camera_id}: Shutting down...")
+    except Exception as e:
+        logging.critical(f"Fatal error in Camera {camera_id}: {str(e)}")
 
 
 if __name__ == "__main__":

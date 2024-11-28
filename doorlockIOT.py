@@ -3,7 +3,9 @@ from IOTdevice import IOTDevice
 from data.config import *
 import time
 import threading
+from socket import *
 
+# Configure logging
 logging.basicConfig(
     filename='doorlock.log',
     level=logging.INFO,
@@ -19,89 +21,90 @@ class DoorLock(IOTDevice):
         self._lock_time = "00:00"
         self.location = location
         logging.info(f"DoorLock {id} initialized at location: {location}")
-    
+
     def set_state(self, state):
         try:
-            if state == "on" or state == "off":    
+            if state in ["on", "off"]:
                 self._state = state
                 logging.info(f"DoorLock {self.id}: State set to {state}")
                 return f"DoorLock {self.id}: State set to {state}"
             else:
-                logging.error(f"Error setting state: {e}")
-                raise Exception("invalid message", state)
+                raise ValueError("Invalid state")
         except Exception as e:
-            raise e
+            logging.error(f"Error setting state: {e}")
+            raise
 
     def set_status(self, status):
         try:
-            if self._state == "off": 
-                raise Exception("off")
-            if status == "lock" or status == "unlock":
+            if self._state == "off":
+                raise RuntimeError("Cannot set status while device is off")
+            if status in ["lock", "unlock"]:
                 self._status = status + "ed"
+                logging.info(f"DoorLock {self.id}: Status set to {self._status}")
                 return f"DoorLock {self.id}: Status set to {self._status}"
             else:
-                raise Exception("invalid message", status)
+                raise ValueError("Invalid status")
         except Exception as e:
-            raise e
-    
+            logging.error(f"Error setting status: {e}")
+            raise
+
     def set_keyless_entry(self, code):
         try:
-            if self._state == "off": 
-                raise Exception("off")
+            if self._state == "off":
+                raise RuntimeError("Cannot set keyless entry while device is off")
             if len(code) == 4 and code.isdigit():
                 self._code = code
+                logging.info(f"DoorLock {self.id}: Keyless entry code updated")
                 return f"DoorLock {self.id}: Keyless entry code updated"
             else:
-                raise Exception("invalid message", code)
+                raise ValueError("Invalid code format")
         except Exception as e:
-            raise e
-    
+            logging.error(f"Error setting keyless entry: {e}")
+            raise
+
     def set_lock_time(self, lock_time):
         try:
-            if self._state == "off": 
-                raise Exception("off")
-            hours = lock_time[:2]
-            minutes = lock_time[3:]
-            if hours.isdigit() and minutes.isdigit() and int(hours) >= 0 and int(hours) <= 23 \
-                and int(minutes) >= 0  and int(minutes) <= 59 and len(lock_time) == 5 and lock_time[2] == ":": 
-                    self._lock_time = lock_time
-                    return f"DoorLock {self.id}: Lock time set to {lock_time}"
+            if self._state == "off":
+                raise RuntimeError("Cannot set lock time while device is off")
+            hours, minutes = lock_time.split(":")
+            if hours.isdigit() and minutes.isdigit() and 0 <= int(hours) <= 23 and 0 <= int(minutes) <= 59:
+                self._lock_time = lock_time
+                logging.info(f"DoorLock {self.id}: Lock time set to {lock_time}")
+                return f"DoorLock {self.id}: Lock time set to {lock_time}"
             else:
-                raise Exception("invalid message", lock_time)
+                raise ValueError("Invalid time format")
         except Exception as e:
-            raise e
-    
+            logging.error(f"Error setting lock time: {e}")
+            raise
+
     def get_state(self):
         return f"DoorLock {self.id}: {self._state}"
-    
+
     def get_status(self):
-        if self._status == "off": 
-            raise Exception("off")
+        if self._state == "off":
+            raise RuntimeError("Device is off")
         return f"DoorLock {self.id}: {self._status}"
-    
+
     def get_keyless_entry(self):
-        if self._state == "off": 
-            raise Exception("off")
+        if self._state == "off":
+            raise RuntimeError("Device is off")
         return f"DoorLock {self.id}: Code is {self._code}"
-        
+
     def get_lock_time(self):
-        if self._state == "off": 
-            raise Exception("off")
+        if self._state == "off":
+            raise RuntimeError("Device is off")
         return f"DoorLock {self.id}: Lock time is {self._lock_time}"
-    
+
     def get_location(self):
         return f"DoorLock {self.id} location: {self.location}"
-    
+
     def set_location(self, new_location):
         self.location = new_location
+        logging.info(f"DoorLock {self.id}: Location updated to {new_location}")
         return f"DoorLock {self.id} location set to {new_location}"
-    
-    # Searches for received message from Hub and calls it's corresponding function
+
     def process_command(self, command, message=None):
         try:
-            if command == "error":
-                return f"ERROR: {message}"
-            
             mapper = {
                 'set_state': self.set_state,
                 'set_status': self.set_status,
@@ -115,70 +118,79 @@ class DoorLock(IOTDevice):
                 'set_location': self.set_location,
                 'get_blockchain_data': self.get_blockchain_data
             }
-            return mapper[command](message) if message else mapper[command]()
-        
+
             if command not in mapper:
                 logging.warning(f"Unknown command '{command}' received by DoorLock {self.id}")
                 return f"ERROR: Unknown command '{command}'"
 
             result = mapper[command](message) if message else mapper[command]()
-            logging.info(f"Command '{command}' executed successfully on DoorLock {self.id} with result: {result}")
-            return str(result)
-
+            logging.info(f"Command '{command}' executed successfully on DoorLock {self.id}")
+            return result
         except Exception as e:
-            logging.error(f"Error executing command '{command}' on DoorLock {self.id}: {e}")
-            return f"ERROR from {self.id}: {str(e)}"
-            
+            logging.error(f"Error executing command '{command}': {e}")
+            return f"ERROR from {self.id}: {e}"
 
+    def start_TCP(self):
+        """Start a TCP server to listen for blockchain handling."""
+        try:
+            TCP_socket = socket(AF_INET, SOCK_STREAM)
+            TCP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+            TCP_socket.bind(("0.0.0.0", self.tcp_port))
+            TCP_socket.listen(5)
+            logging.info(f"{self.device_type} {self.id} TCP server started on {self.ip}:{self.tcp_port}")
+
+            while True:
+                conn, addr = TCP_socket.accept()
+                with conn:
+                    request = conn.recv(4096).decode("utf-8")
+                    if request == "GET_BLOCKCHAIN_DATA":
+                        response = json.dumps(self.blockchain.chain).encode("utf-8")
+                        conn.sendall(response)
+                    elif request.startswith("UPDATE_BLOCKCHAIN;"):
+                        chain_data = request.split(";", 1)[1]
+                        response = self.update_blockchain(chain_data)
+                        conn.sendall(response.encode("utf-8"))
+                    else:
+                        conn.sendall(b"Error: Unknown request")
+        except Exception as e:
+            logging.error(f"Error starting TCP server for {self.device_type} {self.id}: {e}")
+            raise
 
 def start_doorlock(lock_id, location, ip, port):
     try:
         lock = DoorLock(lock_id, location)
-        lock.setEncryption(KEY, upperCaseAll=False, removeSpace=False)   
-
-        #start TCP server on seperate thread for consensus handling
-        tcp_thread = threading.Thread(target=lock.start_TCP)
-        tcp_thread.daemon = True #thread ends when program exits
-        tcp_thread.start() #start thread
-        print(f"Doorlock {lock.id}: TCP server started for blockchain handling.")
-
-        print(f"Setting up DoorLock {lock_id} at {location}")
+        lock.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
         lock.init_sockets(ip, port)
-        print(f"DoorLock {lock_id} listening on {ip}:{port}")
+
+        tcp_thread = threading.Thread(target=lock.start_TCP)
+        tcp_thread.daemon = True
+        tcp_thread.start()
+        logging.info(f"Doorlock {lock.id}: TCP server started for blockchain handling.")
+        print(f"DoorLock {lock_id} running at {location} ({ip}:{port})")
+
         while True:
-            try:
-                response, addr = lock.receive()
+            conn, addr = lock.commSocket.accept()
+            with conn:
+                response = conn.recv(4096).decode("utf-8")
                 if response == "exit":
                     break
-                    
-                print(f"DoorLock {lock_id} received: {response}")
                 command, message = lock.parse_command(response)
                 output = lock.process_command(command, message)
-                
-                print(f"DoorLock {lock_id} sending response: {output}")
-                lock.send(output, (HUB_IP, HUB_PORT))
-                
-            except Exception as e:
-                error_msg = f"Error in DoorLock {lock_id}: {str(e)}"
-                print(error_msg)
-                lock.send(error_msg, (HUB_IP, HUB_PORT))
-
-            print(f"DoorLock {lock_id} shutting down...")
-
+                conn.sendall(output.encode("utf-8"))
     except Exception as e:
-            print(f"Fatal error in DoorLock {lock_id}: {str(e)}")
+        logging.critical(f"Fatal error in DoorLock {lock_id}: {e}")
+    finally:
+        logging.info(f"DoorLock {lock_id} shutting down...")
 
 if __name__ == '__main__':
     import sys
-    
+
     if len(sys.argv) < 4:
         print("Usage: python doorlockIOT.py <lock_id> <location> <port>")
-        print("Example: python doorlockIOT.py door1 'Front Door' 8084")
         sys.exit(1)
-        
+
     lock_id = sys.argv[1]
     location = sys.argv[2]
     port = int(sys.argv[3])
 
-    logging.info(f"Starting Doorlock with ID: {lock_id}, Location: {location}, Port: {port}")
     start_doorlock(lock_id, location, DOORLOCK_IP, port)

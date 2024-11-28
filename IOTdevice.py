@@ -1,70 +1,69 @@
+import logging
 from communicator import Communicator
 from socket import *
-from Blockchain import Blockchain
-import time
 import json
-import logging
+import time
+from Blockchain import Blockchain
+
 
 class IOTDevice(Communicator):
     def __init__(self, id, device_type="unknown", location="unknown"):
         super().__init__(id)
         self.device_type = device_type
         self.location = location
-        self.blockchain = Blockchain() #each device has its own blockchain
-        print(f"Initializing {self.device_type} device {self.id} at location: {self.location}")
-
-        #setting up log file for testing blockchain
+        self.tcp_port = None
+        self.blockchain = Blockchain()
         self.logger = logging.getLogger(f"{self.device_type}_{self.id}")
         file_handler = logging.FileHandler(f"{self.device_type}_{self.id}_blockchain_log.txt")
         file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
         self.logger.addHandler(file_handler)
         self.logger.setLevel(logging.INFO)
+        print(f"Initializing {self.device_type} device {self.id} at location: {self.location}")
 
     def display_blockchain(self):
-        #display and log blockchain ledger of device in txt file for testing
-        self.logger.info(f"Blockchain for {self.device_type} ({self.id}): \n")
-        for block in self.blockchain.chain: #displaying each block in device's chain
-            self.logger.info(f"Block {block['index']}: \n")
-            self.logger.info(f"Timestamp: {block['timestamp']} \n")
-            self.logger.info(f"Previous Hash: {block['previous_hash']} \n")
-            self.logger.info(f"Proof: {block['proof']} \n")
-            self.logger.info(f"Interactions: {block['interactions']} \n")
-        self.logger.info("\n")
-        
+        self.logger.info(f"Blockchain for {self.device_type} ({self.id}):")
+        for block in self.blockchain.chain:
+            self.logger.info(f"Block {block['index']}:")
+            self.logger.info(f"Timestamp: {block['timestamp']}")
+            self.logger.info(f"Previous Hash: {block['previous_hash']}")
+            self.logger.info(f"Proof: {block['proof']}")
+            self.logger.info(f"Interactions: {block['interactions']}")
+        self.logger.info("End of blockchain.\n")
 
     def start_TCP(self):
-        #start a tcp server to listen for blockchain consensus
-        try: #establishing TCP connection from device
+        try:
             TCP_socket = socket(AF_INET, SOCK_STREAM)
-            TCP_socket.bind((self.ip, self.port))
-            TCP_socket.listen(1)
-            print(f"{self.id} is listening for TCP connections on {self.ip} on port {self.port}")
+            TCP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+            TCP_socket.bind(("0.0.0.0", self.tcp_port))
+            TCP_socket.listen(5)
+            print(f"{self.device_type} {self.id} listening for TCP connections on {self.ip}:{self.tcp_port}")
 
             while True:
                 conn, addr = TCP_socket.accept()
                 try:
-                    request = conn.recv(1024).decode("utf-8")
-                    if request == "GET_BLOCKCHAIN_DATA": #if message matches this command
-                        #respond with blockchain data
+                    request = conn.recv(4096).decode("utf-8")
+                    if not request:
+                        print(f"Empty request from {addr}.")
+                        continue
+                    if request == "GET_BLOCKCHAIN_DATA":
                         response = json.dumps(self.blockchain.chain).encode("utf-8")
                         conn.sendall(response)
-                    elif request.startswith("UPDATE_BLOCKCHAIN;"): #if message begins with this command
-                        #parse message to take in resolved chain and update device's chain
+                    elif request.startswith("UPDATE_BLOCKCHAIN;"):
                         chain_data = request.split(";", 1)[1]
                         update_response = self.update_blockchain(chain_data)
                         conn.sendall(update_response.encode("utf-8"))
-                    else: #if message is not a recognized command
+                    else:
                         conn.sendall(b"Error: Unknown blockchain request")
+                except Exception as e:
+                    self.logger.error(f"Error handling TCP request from {addr}: {e}")
+                finally:
                     conn.close()
-                except Exception as e: 
-                    print(f"Error handling TCP request: {e}")
-        except Exception as e: 
-            print(f"Error starting TCP server for {self.device_type} {self.id}: {e}")
+        except Exception as e:
+            self.logger.error(f"Error starting TCP server for {self.device_type} {self.id}: {e}")
+            raise
 
-    def send(self, message, recipient, data_type=None, TCP_socket=None, server_addr=None):
-        """Enhanced send method with device identification"""
+    def send(self, message, recipient):
         try:
-            # Log the outgoing message
             self.blockchain.new_interaction(
                 sender=f"{self.device_type}:{self.id}",
                 recipient=str(recipient),
@@ -76,43 +75,23 @@ class IOTDevice(Communicator):
                     "status": "sent"
                 }
             )
-            if data_type == 'image':            
-                header = data_type + ":" + str(len(message))
-                cipher_header = self.encrypt(header).encode("utf-8")
-                self.commSocket.sendto(cipher_header, recipient)
-                
-                response = self.receive()
-                if response[0] == 'ack':
-                    TCP_socket.connect(server_addr)
-                    TCP_socket.sendall(message)
-                
-                response = self.receive()
-                if response[0] == 'done':
-                    TCP_socket.close()
-            else:
-                # Format message
-                if not isinstance(message, bytes) and not message.startswith(("text:", "image:")):
-                    message = "text:" + str(message)
-                
-                cipher_text = self.encrypt(message).encode("utf-8")
-                self.commSocket.sendto(cipher_text, recipient)
-                print(f"{self.device_type} {self.id} sent: {message}")
-            
+            with socket(AF_INET, SOCK_STREAM) as tcp_socket:
+                tcp_socket.connect(recipient)
+                tcp_socket.sendall(message.encode("utf-8"))
+                print(f"{self.device_type} {self.id} sent: {message} to {recipient}")
         except Exception as e:
-            print(f"Error in send for {self.device_type} {self.id}: {e}")
+            self.logger.error(f"Error in send for {self.device_type} {self.id}: {e}")
             raise
 
     def receive(self):
-        """Enhanced receive method with device identification"""
         try:
-            data, addr = self.commSocket.recvfrom(self.buf)
-            msg = str(data, "utf-8")
-            plain_text = self.decrypt(msg)
-                
+            conn, addr = self.commSocket.accept()
+            data = conn.recv(4096).decode("utf-8")
+            if not data:
+                raise ValueError("Received empty data.")
+            plain_text = self.decrypt(data)
             if plain_text.startswith("text:"):
                 plain_text = plain_text[5:]
-                
-            # Log the incoming message
             self.blockchain.new_interaction(
                 sender=str(addr),
                 recipient=f"{self.device_type}:{self.id}",
@@ -127,86 +106,58 @@ class IOTDevice(Communicator):
             print(f"{self.device_type} {self.id} received: {plain_text}")
             return plain_text, addr
         except Exception as e:
-            print(f"Error in receive for {self.device_type} {self.id}: {e}")
-            return f"Error: {str(e)}", addr
+            self.logger.error(f"Error in receive for {self.device_type} {self.id}: {e}")
+            raise
 
     def init_sockets(self, ip, port):
-        """Initialize device sockets with better logging"""
         try:
             self.setIP(ip)
             self.setPort(port)
-            UDP_socket = socket(AF_INET, SOCK_DGRAM)
-            UDP_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-            UDP_socket.bind((self.ip, self.port))
-            self.setSocket(UDP_socket)
-            print(f"{self.device_type} {self.id} initialized socket on {ip}:{port}")
+            self.tcp_port = port + 1000
+            self.commSocket = socket(AF_INET, SOCK_STREAM)
+            self.commSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+            self.commSocket.bind((self.ip, self.port))
+            self.commSocket.listen(5)
+            print(f"{self.device_type} {self.id} initialized TCP socket on {ip}:{self.tcp_port}")
         except Exception as e:
-            print(f"Error initializing socket for {self.device_type} {self.id}: {e}")
+            self.logger.error(f"Error initializing socket for {self.device_type} {self.id}: {e}")
             raise
 
     def parse_command(self, command):
-        """Enhanced command parsing with better error handling"""
         try:
             if isinstance(command, tuple):
                 command = command[0]
-                
             if isinstance(command, str) and command.startswith("Error"):
                 return "error", command
-                
             if command.startswith("text:"):
                 command = command[5:]
-                
             parts = command.split(';')
             new_command = parts[0].strip()
             message = parts[1].strip() if len(parts) > 1 else None
-            
             print(f"{self.device_type} {self.id} parsing command: {new_command} with message: {message}")
             return new_command, message
-            
         except Exception as e:
-            print(f"Error parsing command for {self.device_type} {self.id}: {e}")
+            self.logger.error(f"Error parsing command for {self.device_type} {self.id}: {e}")
             return "error", str(e)
-        
+
     def get_location(self):
-        """Get device location"""
         return f"{self.device_type} {self.id} location: {self.location}"
-    
+
     def set_location(self, new_location):
-        """Set device location"""
         self.location = new_location
         return f"{self.device_type} {self.id} location set to {new_location}"
-    
-    def get_info(self):
-        """Get device information"""
-        return {
-            "id": self.id,
-            "type": self.device_type,
-            "location": self.location,
-            "ip": self.ip,
-            "port": self.port
-        }
-        
-        return new_command, message
-    
-    #takes in resolved chain to update personal device ledger 
+
     def update_blockchain(self, chain_data):
         try:
-            #parsing input
             new_chain = json.loads(chain_data)
-            #checks if new chain has all valid block hashes and proof of work
             if self.blockchain.is_valid_chain(new_chain):
-                #replaces old blockchain with new one
                 self.blockchain.chain = new_chain
                 self.logger.info(f"{self.device_type} {self.id}: Blockchain updated successfully.")
-                self.display_blockchain()  #log the updated blockchain
-                return "ACK: Blockchain update successfully"          
+                self.display_blockchain()
+                return "ACK: Blockchain update successfully"
             else:
-                self.logger.error(f"{self.device_type} {self.id}: Recieved invalid blockchain.")
-                return "Error: Recieved invalid blockchain"
+                self.logger.error(f"{self.device_type} {self.id}: Received invalid blockchain.")
+                return "Error: Received invalid blockchain"
         except Exception as e:
             self.logger.error(f"{self.device_type} {self.id}: Error updating blockchain: {e}")
             return f"Error updating blockchain: {str(e)}"
-        
-    
-
-

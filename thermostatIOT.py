@@ -20,15 +20,15 @@ class thermostatIOT(IOTDevice):
         self._temperature = self.generate_random_temperature()
         self._fan_speed = self.map_fan_speed('med')
         self._state = "off"
-        self._status = "off" 
-        self._time_thermostate = "00:00"
+        self._status = "off"
+        self._time_thermostat = "00:00"
         logging.info(f"Thermostat {id} initialized at location: {location}")
         logging.info(f"Initial Temperature: {self._temperature}°F")
 
     def get_temperature(self):
         return f"Thermostat {self.id}: {str(self._temperature)}°F"
     
-    SPEED_MAPPING = {'high': .5, 'med': 0.3, 'low': 0.1}
+    SPEED_MAPPING = {'high': 0.5, 'med': 0.3, 'low': 0.1}
     
     @staticmethod
     def map_fan_speed(fan_speed):
@@ -49,25 +49,25 @@ class thermostatIOT(IOTDevice):
     
     def set_state(self, state):
         try:
-            if state == "on" or state == "off":    
+            if state in ["on", "off"]:
                 self._state = state
                 logging.info(f"Thermostat {self.id}: State set to {state}")
                 return f"Thermostat {self.id}: State set to {state}"
             else:
-                raise Exception("invalid message", state)
+                raise Exception("Invalid message", state)
         except Exception as e:
             logging.error(f"Error setting state: {e}")
             raise e
     
     def set_status(self, status):
         try:
-            if self._state == "off": 
+            if self._state == "off":
                 raise Exception("off")
-            if status == "Heating" or status == "Cooling" or status == 'on':
+            if status in ["Heating", "Cooling", "on"]:
                 self._status = status
                 return f"Thermostat {self.id}: Status set to {status}"
             else:
-                raise Exception("invalid message", status)
+                raise Exception("Invalid message", status)
         except Exception as e:
             raise e
 
@@ -109,7 +109,6 @@ class thermostatIOT(IOTDevice):
             if fan_speed is not None:
                 self._fan_speed = self.map_fan_speed(fan_speed)
                 current_time = time.time()
-                readable_time = datetime.fromtimestamp(current_time).strftime('%H-%M-%S')
 
                 # Gradually adjust the temperature until it reaches the desired range
                 while not (new_temperature - 0.5 <= self._temperature <= new_temperature + 0.5):
@@ -128,7 +127,7 @@ class thermostatIOT(IOTDevice):
                     time.sleep(update_interval)
 
             # Log the successful adjustment
-            result = f"Thermostat {self.id}: Reached {str(round(self._temperature, 2))}°F at {readable_time}"
+            result = f"Thermostat {self.id}: Reached {str(round(self._temperature, 2))}°F"
             logging.info(result)
             return result
 
@@ -190,23 +189,22 @@ class thermostatIOT(IOTDevice):
 
 def start_thermostat(therm_id, location, ip, port):
     try:
-
         thermostat = thermostatIOT(therm_id, location)
         thermostat.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
+        thermostat.init_sockets(ip, port)  # Initialize sockets first
 
-        #start TCP server on seperate thread for consensus handling
+        # Start TCP server on a separate thread for blockchain handling
         tcp_thread = threading.Thread(target=thermostat.start_TCP)
-        tcp_thread.daemon = True #thread ends when program exits
-        tcp_thread.start() #start thread
+        tcp_thread.daemon = True  # Thread ends when the program exits
+        tcp_thread.start()  # Start thread
         print(f"Thermostat {thermostat.id}: TCP server started for blockchain handling.")
-
-        
         print(f"Setting up Thermostat {therm_id} at {location}")
-        thermostat.init_sockets(ip, port)
         print(f"Thermostat {therm_id} listening on {ip}:{port}")
+
         while True:
             try:
-                response, addr = thermostat.receive()
+                conn, addr = thermostat.commSocket.accept()  # TCP accept
+                response = conn.recv(4096).decode("utf-8")
                 if response == "exit":
                     break
                     
@@ -215,15 +213,15 @@ def start_thermostat(therm_id, location, ip, port):
                 output = thermostat.process_command(command, message)
                 
                 print(f"Thermostat {therm_id} sending response: {output}")
-                thermostat.send(output, (HUB_IP, HUB_PORT))
+                conn.sendall(output.encode("utf-8"))
+                conn.close()
                 
             except Exception as e:
                 error_msg = f"Error in Thermostat {therm_id}: {str(e)}"
                 print(error_msg)
-                thermostat.send(error_msg, (HUB_IP, HUB_PORT))
-        
+
         print(f"Thermostat {therm_id} shutting down...")
-        
+
     except Exception as e:
         print(f"Fatal error in Thermostat {therm_id}: {str(e)}")
 
@@ -241,5 +239,3 @@ if __name__ == "__main__":
 
     logging.info(f"Starting Thermostat with ID: {therm_id}, Location: {location}, Port: {port}")
     start_thermostat(therm_id, location, THERMOSTAT_IP, port)
-    
-    

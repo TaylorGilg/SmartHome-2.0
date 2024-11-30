@@ -8,6 +8,7 @@ from PIL import Image
 import traceback
 from data.config import *
 import json
+import threading
 
 # Configure logging
 logging.basicConfig(
@@ -30,16 +31,9 @@ class Hub(Communicator):
         self._port = int(port)
         self._buf = 1024 * 2
 
-        # setting up log file for testing blockchain ledgers
-        self.logger = logging.getLogger("Hub")
-        file_handler = logging.FileHandler("hub_blockchain_log.txt")
-        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
-        self.logger.addHandler(file_handler)
-        self.logger.setLevel(logging.INFO)
-
         self.init_sockets()
         logging.info(f"Hub '{self.name}' initialized at {ip}:{port}")
-
+        
     def register_device(self, device_id, device_ip, device_port, location="unknown"):
         """Register a new device with the hub"""
         try:
@@ -104,6 +98,86 @@ class Hub(Communicator):
             logging.error(f"Error initializing sockets: {e}")
             raise
 
+    #Consensus Protocol Methods: 
+
+    def request_blockchains(self):
+        """Request blockchain data from devices via TCP"""
+        blockchains = {}  # Dictionary of blockchain data with corresponding device_id as key
+        for device_id, (device_ip, device_port) in self._authenticated_devices.items():
+            try:
+                device_tcp_port = int(device_port) + 1000
+                with socket(AF_INET, SOCK_STREAM) as s:
+                    s.connect((device_ip, device_tcp_port))
+                    s.sendall(b"GET_BLOCKCHAIN_DATA")
+                    response = s.recv(4096)
+                    blockchains[device_id] = json.loads(response)
+            except Exception as e:
+                print(f"Error getting blockchain data from {device_id}: {e}")
+        return blockchains
+    
+    #solves conflicts between varying ledgers between devices
+    def solve_conflicts(self, blockchains):
+        #holds longest valid blockchain
+        longest_chain = None
+        #to track length of the longest blockchain
+        max_length = 0
+        #sum of proofs can act as tie breaker if multiple valid chains are same max length
+        best_cumulative_proof = 0
+
+        #iterating through the blockchain dictionary
+        for device_id, chain in blockchains.items():
+            try:
+                #validating and checking for chain of max length
+                if self.blockchain.is_valid_chain(chain) and len(chain) >= max_length:
+                    #calculating tie breaker
+                    cumulative_proof = sum(block['proof'] for block in chain)
+
+                    if (len(chain) > (max_length) or (len(chain) == max_length and cumulative_proof > best_cumulative_proof)):
+                        #update current longest chain
+                        longest_chain = chain
+                        #update max length
+                        max_length = len(chain)
+                        #updating best current tie breaker
+                        best_cumulative_proof = cumulative_proof
+            except Exception as e:
+                print(f"Error validating chain from {device_id}: {e}")
+        #if no valid chains, default to hub's chain
+        if longest_chain is None:
+            return self.blockchain.chain
+        else:
+            return longest_chain
+
+    #takes in resolved chain and sends it out to devices via TCP connection
+    def update_devices(self, resolved_chain):
+        """Send resolved blockchain data to devices via TCP"""
+        for device_id, (device_ip, device_port) in self._authenticated_devices.items():
+            try:
+                device_tcp_port = int(device_port) + 1000
+                with socket(AF_INET, SOCK_STREAM) as s:
+                    s.connect((device_ip, device_tcp_port))
+                    message = f"UPDATE_BLOCKCHAIN;{json.dumps(resolved_chain)}"
+                    s.sendall(message.encode("utf-8"))
+                    response = s.recv(1024).decode("utf-8")
+                    if response.startswith("ACK"):
+                        print(f"Device {device_id} successfully updated blockchain")
+                    else:
+                        print(f"Device {device_id} failed to update {response}")
+            except Exception as e:
+                print(f"Error updating blockchain for {device_id}: {e}")
+
+    def consensus_protocol(self): 
+        while True:
+            blockchains = self.request_blockchains()
+            resolved_chain = self.solve_conflicts(blockchains)
+            self.update_devices(resolved_chain)
+            time.sleep(60) #run protocol every 60 seconds after started 
+
+    #the idea is to have a button to trigger consensus protocol to work every 60sec once all devices are registered via the UI
+    def start_consensus_protocol(self): #to run consensus protocol on its own thread once all devices have been registered
+        consensus_thread = threading.Thread(target=self.consensus_protocol)
+        consensus_thread.daemon = True
+        consensus_thread.start()
+    
     def send(self, message, recipient):
         """Send message to a device via TCP"""
         try:
@@ -167,56 +241,4 @@ class Hub(Communicator):
             logging.error(f"Error receiving message: {e}")
             print(f"Error receiving message: {e}")
 
-    def request_blockchains(self):
-        """Request blockchain data from devices via TCP"""
-        blockchains = {}  # Dictionary of blockchain data with corresponding device_id as key
-        for device_id, (device_ip, device_port) in self._authenticated_devices.items():
-            try:
-                device_tcp_port = int(device_port) + 1000
-                with socket(AF_INET, SOCK_STREAM) as s:
-                    s.connect((device_ip, device_tcp_port))
-                    s.sendall(b"GET_BLOCKCHAIN_DATA")
-                    response = s.recv(4096)
-                    blockchains[device_id] = json.loads(response)
-            except Exception as e:
-                print(f"Error getting blockchain data from {device_id}: {e}")
-        return blockchains
-
-    def update_devices(self, resolved_chain):
-        """Send resolved blockchain data to devices via TCP"""
-        for device_id, (device_ip, device_port) in self._authenticated_devices.items():
-            try:
-                device_tcp_port = int(device_port) + 1000
-                with socket(AF_INET, SOCK_STREAM) as s:
-                    s.connect((device_ip, device_tcp_port))
-                    message = f"UPDATE_BLOCKCHAIN;{json.dumps(resolved_chain)}"
-                    s.sendall(message.encode("utf-8"))
-                    response = s.recv(1024).decode("utf-8")
-                    if response.startswith("ACK"):
-                        print(f"Device {device_id} successfully updated blockchain")
-                    else:
-                        print(f"Device {device_id} failed to update {response}")
-            except Exception as e:
-                print(f"Error updating blockchain for {device_id}: {e}")
-
-    def consensus_protocol(self):
-        """Run the blockchain consensus protocol"""
-        while True:
-            self.logger.info("Starting consensus protocol...")
-            blockchains = self.request_blockchains()
-            resolved_chain = self.solve_conflicts(blockchains)
-            self.update_devices(resolved_chain)
-            self.logger.info("Consensus protocol completed.")
-
-            # Log the resolved blockchain
-            self.logger.info("Consensus Result: ")
-            with open("hub_blockchain_log.txt", "a") as file:
-                for block in resolved_chain:
-                    file.write(f"Block {block['index']}:\n")
-                    file.write(f"Timestamp: {block['timestamp']}\n")
-                    file.write(f"Previous Hash: {block['previous_hash']}\n")
-                    file.write(f"Proof: {block['proof']}\n")
-                    file.write(f"Interactions: {block['interactions']}\n")
-                file.write("\n")
-
-            time.sleep(60)  # Run every 60 seconds
+    

@@ -5,7 +5,6 @@ import time
 import threading
 from socket import *
 
-# Configure logging
 logging.basicConfig(
     filename='doorlock.log',
     level=logging.INFO,
@@ -124,37 +123,21 @@ class DoorLock(IOTDevice):
                 return f"ERROR: Unknown command '{command}'"
 
             result = mapper[command](message) if message else mapper[command]()
+
+            #log action and create a new block
+            self.blockchain.new_interaction(sender = self.id, recipient = "Hub", 
+            data = {"command": command, "message": message, "result": result})
+            proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
+            self.blockchain.new_block(proof)
+
+            #display the blockchain
+            self.display_blockchain()
+
             logging.info(f"Command '{command}' executed successfully on DoorLock {self.id}")
             return result
         except Exception as e:
             logging.error(f"Error executing command '{command}': {e}")
             return f"ERROR from {self.id}: {e}"
-
-    def start_TCP(self):
-        """Start a TCP server to listen for blockchain handling."""
-        try:
-            TCP_socket = socket(AF_INET, SOCK_STREAM)
-            TCP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-            TCP_socket.bind(("0.0.0.0", self.tcp_port))
-            TCP_socket.listen(5)
-            logging.info(f"{self.device_type} {self.id} TCP server started on {self.ip}:{self.tcp_port}")
-
-            while True:
-                conn, addr = TCP_socket.accept()
-                with conn:
-                    request = conn.recv(4096).decode("utf-8")
-                    if request == "GET_BLOCKCHAIN_DATA":
-                        response = json.dumps(self.blockchain.chain).encode("utf-8")
-                        conn.sendall(response)
-                    elif request.startswith("UPDATE_BLOCKCHAIN;"):
-                        chain_data = request.split(";", 1)[1]
-                        response = self.update_blockchain(chain_data)
-                        conn.sendall(response.encode("utf-8"))
-                    else:
-                        conn.sendall(b"Error: Unknown request")
-        except Exception as e:
-            logging.error(f"Error starting TCP server for {self.device_type} {self.id}: {e}")
-            raise
 
 def start_doorlock(lock_id, location, ip, port):
     try:

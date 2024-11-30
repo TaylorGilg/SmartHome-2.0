@@ -180,9 +180,19 @@ class thermostatIOT(IOTDevice):
                 return f"ERROR: Unknown command '{command}'"
                 
             result = mapper[command](message) if message else mapper[command]()
+
+            #log action and create a new block
+            self.blockchain.new_interaction(sender = self.id, recipient = "Hub", 
+            data = {"command": command, "message": message, "result": result})
+            proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
+            self.blockchain.new_block(proof)
+
+            #display the blockchain
+            self.display_blockchain()
+
             logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
             return str(result)
-            
+
         except Exception as e:
             logging.error(f"Error executing command '{command}' on Thermostat {self.id}: {e}")
             return f"ERROR from {self.id}: {str(e)}"
@@ -208,10 +218,12 @@ def start_thermostat(therm_id, location, ip, port):
                 if response == "exit":
                     break
                     
+                logging.info(f"Thermostat {therm_id}: received: {response}")
                 print(f"Thermostat {therm_id} received: {response}")
                 command, message = thermostat.parse_command(response)
                 output = thermostat.process_command(command, message)
                 
+                logging.info(f"Thermostat {therm_id}: Sending response: {output}")
                 print(f"Thermostat {therm_id} sending response: {output}")
                 conn.sendall(output.encode("utf-8"))
                 conn.close()

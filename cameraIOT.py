@@ -36,6 +36,16 @@ class CameraIOT(IOTDevice):
                 return f"ERROR: Unknown command '{command}'"
 
             result = mapper[command](message) if message else mapper[command]()
+
+            #log action and create a new block
+            self.blockchain.new_interaction(sender = self.id, recipient = "Hub", 
+            data = {"command": command, "message": message, "result": result})
+            proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
+            self.blockchain.new_block(proof)
+
+            #display the blockchain
+            self.display_blockchain()
+
             logging.info(f"Camera {self.id}: Command '{command}' executed successfully with result: '{result}'")
             return result
         except Exception as e:

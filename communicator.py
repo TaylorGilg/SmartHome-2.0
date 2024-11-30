@@ -45,6 +45,11 @@ class Communicator:
                     "status": "sent"
                 }
             )
+            proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
+            self.blockchain.new_block(proof)
+
+            #display the blockchain
+            self.display_blockchain()
 
             # Format message
             if not isinstance(message, bytes):
@@ -85,6 +90,11 @@ class Communicator:
                     "status": "received"
                 }
             )
+            proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
+            self.blockchain.new_block(proof)
+
+            #display the blockchain
+            self.display_blockchain()
             
             print(f"Received message: {plain_text} from {addr}")
             conn.close()

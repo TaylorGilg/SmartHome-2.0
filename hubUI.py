@@ -99,9 +99,9 @@ class HubUI:
     def open_send_message_popup(self):
         popup = Toplevel(self.root)
         popup.title("Send Message")
-        popup.geometry("400x300")
+        popup.geometry("500x300")
 
-        popup.geometry("400x300")
+        popup.geometry("500x300")
         # Get list of registered devices
         devices = list(self.hub._authenticated_devices.keys())
         
@@ -116,12 +116,12 @@ class HubUI:
         command_entry.grid(row=1, column=1, padx=5, pady=5)
         
         # Parameter input
-        Label(popup, text="Parameter (optional):").grid(row=2, column=0, padx=5, pady=5)
+        Label(popup, text="Parameter (optional):").grid(row=2, column=0, padx=5, pady=8)
         param_entry = Entry(popup)
-        param_entry.grid(row=2, column=1, padx=5, pady=5)
+        param_entry.grid(row=2, column=1, padx=6, pady=8)
         # Help text
-        help_text = Text(popup, height=8, width=40)
-        help_text.grid(row=3, column=0, columnspan=2, padx=5, pady=5)
+        help_text = Text(popup, height=8, width=60)
+        help_text.grid(row=3, column=0, columnspan=5, padx=6, pady=8)
         help_text.insert(END, "Common Commands:\n\n"
                         "Cameras: get_status, set_status, get_location\n"
                         "DoorLocks: get_state, set_state, get_status, set_status\n"

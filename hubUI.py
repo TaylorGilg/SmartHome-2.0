@@ -2,6 +2,7 @@ from tkinter import Tk, Label, Entry, Button, Text, Scrollbar, Toplevel, END, me
 from threading import Thread
 from hub import Hub
 from data.config import *
+from Blockchain import Blockchain
 
 # GUI that provides interface for device management and blockchain inspection.
 class HubUI:
@@ -11,6 +12,12 @@ class HubUI:
         self.root.title("IoT Hub")
         
         self.setup_ui()
+
+        # initalizing the blockchain, added for consensus
+        print("Initializing blockchain...")  # Debugging statement
+        self.blockchain = Blockchain()
+        print("Blockchain initialized.")  # Debugging statement
+
 
     def setup_ui(self):
          # Device Registration Frame
@@ -39,11 +46,13 @@ class HubUI:
          # Buttons
         button_frame = ttk.Frame(self.root)
         button_frame.grid(row=1, column=0, columnspan=2, pady=10)
+        self.start_consensus_button = Button(button_frame, text="Start Consensus", command= self.start_consensus)
         self.add_device_button = Button(button_frame, text="Add Device", command=self.add_device)
         self.send_button = Button(button_frame, text="Send Message", command=self.open_send_message_popup)
         # Add blockchain viewer button
         self.view_blockchain_button = Button(button_frame, text="View Blockchain", command=self.view_blockchain)
         
+        self.start_consensus_button.pack(side='left', padx=5)
         self.add_device_button.pack(side='left', padx=5)
         self.send_button.pack(side='left', padx=5)
         self.view_blockchain_button.pack(side='left', padx=5)
@@ -74,6 +83,31 @@ class HubUI:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.root.mainloop()
 
+    # adding this to test starting consensus button
+    def start_consensus(self):
+        try:
+            print("Starting consensus...")  # Debugging statement
+            # Ensure blockchain is initialized
+            if self.blockchain is None:
+                raise ValueError("Blockchain object is not initialized.")
+        
+            print("Blockchain state before consensus:", self.blockchain.chain)  # Debugging print
+        
+            # Attempt to add a block using proof of work
+            last_block_proof = self.blockchain.last_block['proof']
+            print(f"Last block proof: {last_block_proof}")  # Debugging print
+        
+            proof = self.blockchain.proof_of_work(last_block_proof)
+            print(f"New proof: {proof}")  # Debugging print
+
+            self.blockchain.add_block(proof)
+        
+            messagebox.showinfo("Consensus", "New block added to the blockchain!")
+        except Exception as e:
+            print(f"Error in start_consensus: {e}")  # Debugging statement
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+
+
     def add_device(self):
         device_id = self.device_id_entry.get()
         device_ip = self.device_ip_entry.get()
@@ -101,9 +135,7 @@ class HubUI:
     def open_send_message_popup(self):
         popup = Toplevel(self.root)
         popup.title("Send Message")
-        popup.geometry("400x300")
-
-        popup.geometry("400x300")
+        popup.geometry("500x300")
         # Get list of registered devices
         devices = list(self.hub._authenticated_devices.keys())
         
@@ -113,17 +145,17 @@ class HubUI:
         device_var.grid(row=0, column=1, padx=5, pady=5)
         
         # Command selection
-        Label(popup, text="Command:").grid(row=1, column=0, padx=5, pady=5)
+        Label(popup, text="Command:").grid(row=1, column=0, padx=5, pady=10)
         command_entry = Entry(popup)
         command_entry.grid(row=1, column=1, padx=5, pady=5)
         
         # Parameter input
-        Label(popup, text="Parameter (optional):").grid(row=2, column=0, padx=5, pady=5)
+        Label(popup, text="Parameter (optional):").grid(row=2, column=0, padx=5, pady=10)
         param_entry = Entry(popup)
         param_entry.grid(row=2, column=1, padx=5, pady=5)
         # Help text
-        help_text = Text(popup, height=8, width=40)
-        help_text.grid(row=3, column=0, columnspan=2, padx=5, pady=5)
+        help_text = Text(popup, height=8, width=60)
+        help_text.grid(row=3, column=0, columnspan=5, padx=6, pady=8)
         help_text.insert(END, "Common Commands:\n\n"
                         "Cameras: get_status, set_status, get_location\n"
                         "DoorLocks: get_state, set_state, get_status, set_status\n"

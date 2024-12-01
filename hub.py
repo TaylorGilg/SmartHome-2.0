@@ -9,6 +9,8 @@ import traceback
 from data.config import *
 import json
 import threading
+import hmac
+import hashlib
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +32,7 @@ class Hub(Communicator):
         self._ip = ip
         self._port = int(port)
         self._buf = 1024 * 2
+        self.mac_key = b"super_secret_key" # Shared key for HMAC
 
         self.init_sockets()
         logging.info(f"Hub '{self.name}' initialized at {ip}:{port}")
@@ -178,10 +181,25 @@ class Hub(Communicator):
         consensus_thread.daemon = True
         consensus_thread.start()
     
+    # MAC Generation
+    def generate_mac(self, message):
+        """Generates an HMAC for the given message"""
+        h = hmac.new(self.mac_key, message.encode(), hashlib.sha256)
+        return h.hexdigest()
+
+    # MAC Verification
+    def verify_mac(self, message, mac):
+        """Verifies the HMAC for the given message"""
+        return hmac.compare_digest(self.generate_mac(message), mac)
+
     def send(self, message, recipient):
         """Send message to a device via TCP"""
         try:
             device_id = self.get_device_id(recipient[0], recipient[1])
+
+            # Generate MAC and append the message
+            mac = self.generate_mac(message)
+            message_with_mac = f"{message} | {mac}"
 
             # Log the outgoing message
             self.blockchain.new_interaction(
@@ -198,8 +216,8 @@ class Hub(Communicator):
 
             with socket(AF_INET, SOCK_STREAM) as s:
                 s.connect(recipient)
-                s.sendall(message.encode("utf-8"))
-                logging.info(f"Message sent to device '{device_id}': {message}")
+                s.sendall(message_with_mac.encode("utf-8"))
+                logging.info(f"Message sent to device '{device_id}': {message_with_mac}")
                 print(f"Sent message to {device_id}: {message}")
 
         except Exception as e:
@@ -213,6 +231,16 @@ class Hub(Communicator):
             conn, addr = self.commSocket.accept()
             data = conn.recv(self._buf).decode("utf-8")
             plain_text = self.decrypt(data)
+
+            # Split the message and MAC
+            if "|" in data:
+                message, mac = data.rsplit("|", 1)
+
+                # Verify the MAC
+                if not self.verify_mac(message, mac):
+                    raise ValueError("Invalid MAC. Message integrity check failed.")
+            else:
+                raise ValueError("Message format invalid: Missing MAC.")
 
             # Get device ID
             device_id = self.get_device_id(addr[0], addr[1])

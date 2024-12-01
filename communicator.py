@@ -17,13 +17,13 @@ class Communicator:
         self.enableEncryption = False
         self.buf = 1024
         self.blockchain = Blockchain()
-        self.mac_key = b"super_secret_key"
+        self.mac_key = b"super_secret_key"  # Shared key for HMAC
         print(f"Communicator initialized with ID: {id}")
 
     # MAC Generation
     def generate_mac(self, message):
         """Generates an HMAC for the given message"""
-        h = hmac.new(self.mac_key, message.endcode(), hashlib.sha256)
+        h = hmac.new(self.mac_key, message.encode(), hashlib.sha256)
         return h.hexdigest()
 
     # MAC Verification
@@ -65,9 +65,6 @@ class Communicator:
             )
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
-
-            #display the blockchain
-            self.display_blockchain()
 
             # Format message
             if not isinstance(message, bytes):
@@ -120,9 +117,6 @@ class Communicator:
             )
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
-
-            #display the blockchain
-            self.display_blockchain()
             
             print(f"Received message: {plain_text} from {addr}")
             conn.close()

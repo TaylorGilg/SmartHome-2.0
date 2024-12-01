@@ -104,6 +104,10 @@ class DoorLock(IOTDevice):
 
     def process_command(self, command, message=None):
         try:
+            # Split command and MAC
+            if "|" in command:
+                command, _ = command.rsplit("|", 1) # Discard the MAC
+
             mapper = {
                 'set_state': self.set_state,
                 'set_status': self.set_status,
@@ -130,9 +134,6 @@ class DoorLock(IOTDevice):
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
 
-            #display the blockchain
-            self.display_blockchain()
-
             logging.info(f"Command '{command}' executed successfully on DoorLock {self.id}")
             return result
         except Exception as e:
@@ -157,9 +158,22 @@ def start_doorlock(lock_id, location, ip, port):
                 response = conn.recv(4096).decode("utf-8")
                 if response == "exit":
                     break
+
+                # Separate the MAC from the command
+                if "|" in response:
+                    response, _ = response.rsplit("|", 1) # Discard the MAC
+                    print(f"Thermostat {lock_id} parsed command: {response.strip()}")
+                
+                print(f"Doorlock {lock_id} received: {response}")
+
+                # Parse and process the command
                 command, message = lock.parse_command(response)
                 output = lock.process_command(command, message)
+
+                print(f"Doorlock {lock_id} sending response: {output}")
+                print() # Spacing for clean output
                 conn.sendall(output.encode("utf-8"))
+
     except Exception as e:
         logging.critical(f"Fatal error in DoorLock {lock_id}: {e}")
     finally:

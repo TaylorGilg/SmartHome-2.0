@@ -23,6 +23,10 @@ class CameraIOT(IOTDevice):
     def process_command(self, command, message=None):
         """Process received command"""
         try:
+            # Split command and MAC
+            if "|" in command:
+                command, _ = command.rsplit("|", 1) # Discard the MAC
+
             logging.info(f"Camera {self.id}: Processing command '{command}' with message: '{message}'")
             mapper = {
                 'get_status': self.get_status,
@@ -42,9 +46,6 @@ class CameraIOT(IOTDevice):
             data = {"command": command, "message": message, "result": result})
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
-
-            #display the blockchain
-            self.display_blockchain()
 
             logging.info(f"Camera {self.id}: Command '{command}' executed successfully with result: '{result}'")
             return result
@@ -101,11 +102,19 @@ def start_camera(camera_id, location, ip, port):
                 logging.info(f"Camera {camera_id}: Received message: {response} from {addr}")
                 if response == "exit":
                     break
+                
+                # Separate the MAC from the command
+                if "|" in response:
+                    response, _ = response.rsplit("|", 1) # Discard the MAC
+                    print(f"Thermostat {camera_id} parsed command: {response.strip()}")
 
+                # Parse and process the command
                 command, message = camera.parse_command(response)
                 output = camera.process_command(command, message)
 
                 logging.info(f"Camera {camera_id}: Sending response: {output}")
+                print(f"Camera {camera_id} sending response: {output}")
+                print() # Spacing for clean output
                 conn.sendall(output.encode("utf-8"))
                 conn.close()
             except Exception as e:

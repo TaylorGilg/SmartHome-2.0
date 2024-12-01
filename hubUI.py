@@ -11,13 +11,13 @@ class HubUI:
         self.root = Tk()
         self.root.title("IoT Hub")
         
+
         self.setup_ui()
 
         # initalizing the blockchain, added for consensus
         print("Initializing blockchain...")  # Debugging statement
         self.blockchain = Blockchain()
         print("Blockchain initialized.")  # Debugging statement
-
 
     def setup_ui(self):
          # Device Registration Frame
@@ -46,14 +46,14 @@ class HubUI:
          # Buttons
         button_frame = ttk.Frame(self.root)
         button_frame.grid(row=1, column=0, columnspan=2, pady=10)
-        self.start_consensus_button = Button(button_frame, text="Start Consensus", command= self.start_consensus)
         self.add_device_button = Button(button_frame, text="Add Device", command=self.add_device)
+        self.start_consensus_button = Button(button_frame, text="Start Consensus", command= self.start_consensus)
         self.send_button = Button(button_frame, text="Send Message", command=self.open_send_message_popup)
         # Add blockchain viewer button
         self.view_blockchain_button = Button(button_frame, text="View Blockchain", command=self.view_blockchain)
         
-        self.start_consensus_button.pack(side='left', padx=5)
         self.add_device_button.pack(side='left', padx=5)
+        self.start_consensus_button.pack(side='left', padx=5)
         self.send_button.pack(side='left', padx=5)
         self.view_blockchain_button.pack(side='left', padx=5)
 
@@ -86,26 +86,18 @@ class HubUI:
     # adding this to test starting consensus button
     def start_consensus(self):
         try:
-            print("Starting consensus...")  # Debugging statement
-            # Ensure blockchain is initialized
-            if self.blockchain is None:
-                raise ValueError("Blockchain object is not initialized.")
-        
-            print("Blockchain state before consensus:", self.blockchain.chain)  # Debugging print
-        
-            # Attempt to add a block using proof of work
-            last_block_proof = self.blockchain.last_block['proof']
-            print(f"Last block proof: {last_block_proof}")  # Debugging print
-        
-            proof = self.blockchain.proof_of_work(last_block_proof)
-            print(f"New proof: {proof}")  # Debugging print
-
-            self.blockchain.add_block(proof)
-        
-            messagebox.showinfo("Consensus", "New block added to the blockchain!")
+            if self.blockchain.is_valid_chain():
+                result = "Blockchain is valid."
+                messagebox.showinfo("Consensus Result", result)
+            else:
+                result = "Blockchain is invalid!"
+                messagebox.showerror("Consensus Result", result)
+            # Update UI with the result
+            self.result_label.config(text=result)
         except Exception as e:
-            print(f"Error in start_consensus: {e}")  # Debugging statement
-            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+            error_message = f"Error during consensus: {str(e)}"
+            messagebox.showerror("Consensus Error", error_message)
+            self.result_label.config(text="Error occurred. Check logs.")
 
 
     def add_device(self):

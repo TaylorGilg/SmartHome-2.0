@@ -3,6 +3,8 @@ from Caesar import CaesarCipher
 from Blockchain import Blockchain
 import time
 from socket import *
+import hmac
+import hashlib
 
 class Communicator:
     
@@ -15,7 +17,19 @@ class Communicator:
         self.enableEncryption = False
         self.buf = 1024
         self.blockchain = Blockchain()
+        self.mac_key = b"super_secret_key"
         print(f"Communicator initialized with ID: {id}")
+
+    # MAC Generation
+    def generate_mac(self, message):
+        """Generates an HMAC for the given message"""
+        h = hmac.new(self.mac_key, message.endcode(), hashlib.sha256)
+        return h.hexdigest()
+
+    # MAC Verification
+    def verify_mac(self, message, mac):
+        """Verifies the HMAC for the given message"""
+        return hmac.compare_digest(self.generate_mac(message), mac)
 
     def encrypt(self, message):
         if self.enableEncryption: 
@@ -34,6 +48,10 @@ class Communicator:
     def send(self, message, recipient):
         """Send message using TCP"""
         try:
+            # Generate MAC and append it to the message
+            mac = self.generate_mac(message)
+            message_with_mac = f"{message} | {mac}"
+
             # Log the outgoing message
             self.blockchain.new_interaction(
                 sender=self.id,
@@ -56,7 +74,7 @@ class Communicator:
                 message = "text:" + str(message)
             
             # Encrypt message
-            cipher_text = self.encrypt(message).encode("utf-8")
+            cipher_text = self.encrypt(message_with_mac).encode("utf-8")
 
             # Open a TCP connection and send the message
             with socket(AF_INET, SOCK_STREAM) as s:
@@ -73,7 +91,17 @@ class Communicator:
         try:
             conn, addr = self.commSocket.accept()  # Accept an incoming connection
             data = conn.recv(self.buf).decode("utf-8")  # Receive data
-            plain_text = self.decrypt(data)
+            decrypted_message = self.decrypt(data)
+
+            # Split message and MAC
+            if "|" in decrypted_message:
+                plain_text, mac = decrypted_message.rsplit("|", 1)
+
+                # Verifty the MAC
+                if not self.verify_mac(plain_text, mac):
+                    raise ValueError("Invalid MAC. Message integrity check failed.")
+            else:
+                raise ValueError("Message format invalid: Missing MAC.")
 
             # Remove text: prefix if present
             if plain_text.startswith("text:"):

@@ -8,7 +8,7 @@ from PIL import Image
 import traceback
 from data.config import *
 import json
-import threading
+import socket
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +63,25 @@ class Hub(Communicator):
             print(f"Error registering device: {e}")
             raise
 
+    def get_blockchain_data(self, device_id):
+        try:
+            device_ip, device_port = self._authenticated_devices[device_id]
+            device_tcp_port = int(device_port) + 1000 #TCP port 1000 more
+
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(5) #timeout after 5 seconds
+                s.connect((device_ip, device_tcp_port))
+                s.sendall(b"GET_BLOCKCHAIN_DATA")
+                response = s.recv(4096)
+                return json.loads(response)
+            
+        except (socket.timeout, ConnectionRefusedError) as e:
+            print(f"Connection to device {device_id} falied: {e}")
+            return []
+        except Exception as e:
+            print(f"Error getting blockchain data from device {device_id}: {e}")
+            return []
+
     def get_device_id(self, ip, port):
         """Get device ID from IP and port"""
         return self._ip_to_id.get((ip, int(port)), f"{ip}:{port}")
@@ -90,7 +109,7 @@ class Hub(Communicator):
     def init_sockets(self):
         """Initialize TCP socket for Hub"""
         try:
-            self.commSocket = socket(AF_INET, SOCK_STREAM)
+            self.commSocket = socket.socket(AF_INET, SOCK_STREAM)
             self.commSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)  # Allow address reuse
             self.commSocket.bind((self._ip, self._port))
             self.commSocket.listen(5)  # Listen for incoming connections
@@ -108,7 +127,7 @@ class Hub(Communicator):
         for device_id, (device_ip, device_port) in self._authenticated_devices.items():
             try:
                 device_tcp_port = int(device_port) + 1000
-                with socket(AF_INET, SOCK_STREAM) as s:
+                with socket.socket(AF_INET, SOCK_STREAM) as s:
                     s.connect((device_ip, device_tcp_port))
                     s.sendall(b"GET_BLOCKCHAIN_DATA")
                     response = s.recv(4096)
@@ -158,7 +177,7 @@ class Hub(Communicator):
         for device_id, (device_ip, device_port) in self._authenticated_devices.items():
             try:
                 device_tcp_port = int(device_port) + 1000
-                with socket(AF_INET, SOCK_STREAM) as s:
+                with socket.socket(AF_INET, SOCK_STREAM) as s:
                     s.connect((device_ip, device_tcp_port))
                     message = f"UPDATE_BLOCKCHAIN;{json.dumps(resolved_chain)}"
                     s.sendall(message.encode("utf-8"))
@@ -206,7 +225,7 @@ class Hub(Communicator):
             )
             logging.info(f"Sending command '{message}' to device '{device_id}' at {recipient}")
             # Actually sends the message with the TCP socket and ensures it gracefully closes in the presence of errors.
-            with socket(AF_INET, SOCK_STREAM) as s:
+            with socket.socket(AF_INET, SOCK_STREAM) as s:
                 s.connect(recipient)
                 s.sendall(message.encode("utf-8"))
                 logging.info(f"Message sent to device '{device_id}': {message}")

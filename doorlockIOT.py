@@ -137,10 +137,14 @@ class DoorLock(IOTDevice):
             self.blockchain.new_block(proof)
 
             #display the blockchain
-            self.display_blockchain()
+            #self.display_blockchain()
 
-            logging.info(f"Command '{command}' executed successfully on DoorLock {self.id}")
-            return result
+            logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
+            return str(result)
+        
+            #logging.info(f"Command '{command}' executed successfully on DoorLock {self.id}")
+            #return result
+            
         except Exception as e:
             logging.error(f"Error executing command '{command}': {e}")
             return f"ERROR from {self.id}: {e}"

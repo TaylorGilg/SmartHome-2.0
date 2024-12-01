@@ -1,4 +1,4 @@
-from tkinter import Tk, Label, Entry, Button, Text, Scrollbar, Toplevel, END, messagebox, ttk
+from tkinter import Tk, Label, Entry, Button, Text, Scrollbar, Toplevel, END, messagebox, ttk, StringVar
 from threading import Thread
 from hub import Hub
 from data.config import *
@@ -42,6 +42,11 @@ class HubUI:
         self.device_ip_entry.grid(row=1, column=1, padx=5, pady=5)
         self.device_port_entry.grid(row=2, column=1, padx=5, pady=5)
         self.device_location_entry.grid(row=3, column=1, padx=5, pady=5)
+
+        # Device selection for blockchain data display
+        self.device_var = StringVar()
+        self.blockchain_device_dropdown = ttk.Combobox(self.root, textvariable = self.device_var)
+        self.blockchain_device_dropdown.grid(row=4, column=0, columnspan=2, pady=5)
 
          # Buttons
         button_frame = ttk.Frame(self.root)
@@ -214,11 +219,22 @@ class HubUI:
         self.device_list_text.config(state="disabled")
 
     # Creates a window to view the complete blockchain. Shows entire history of device interactions and commands.
+        #update device dropdown for blockchain view
+        device_ids = list(self.hub._authenticated_devices.keys())
+        self.blockchain_device_dropdown['values'] = device_ids
+        if device_ids:
+            self.blockchain_device_dropdown.set(device_ids[0])
+
     def view_blockchain(self):
+
+        selected_device = self.device_var.get()
+        if not selected_device:
+            messagebox.showerror("Error", "Please select a device.")
+            return
+
         blockchain_window = Toplevel(self.root)
-        blockchain_window.title("Blockchain View")
+        blockchain_window.title(f"Blockchain View - {selected_device}")
         blockchain_window.geometry("800x600")
-        
         # Setup blockchain display area
         blockchain_text = Text(blockchain_window, wrap="word", height=30, width=90)
         scrollbar = Scrollbar(blockchain_window, command=blockchain_text.yview)
@@ -228,19 +244,37 @@ class HubUI:
         # Get blockchain data from hub
         blockchain_data = self.hub.get_blockchain_data()
         
-        # Display each block and its interactions with the metadata formatting inline.
-        for block in blockchain_data:
-            blockchain_text.insert(END, f"\nBlock {block['index']}:\n")
-            blockchain_text.insert(END, f"Timestamp: {block['timestamp']}\n")
-            blockchain_text.insert(END, f"Previous Hash: {block['previous_hash']}\n")
-            blockchain_text.insert(END, "\nInteractions:\n")
-            
-            for interaction in block['interactions']:
-                blockchain_text.insert(END, f"\nFrom: {interaction['sender']}\n")
-                blockchain_text.insert(END, f"To: {interaction['recipient']}\n")
-                blockchain_text.insert(END, f"Data: {interaction['data']}\n")
-                blockchain_text.insert(END, "-" * 50 + "\n")
-        blockchain_text.config(state="disabled")
+        def update_blockchain_view(): 
+            try: 
+                blockchain_data = self.hub.get_blockchain_data(selected_device)
+                blockchain_text.config(state="normal")
+                blockchain_text.delete(1.0, END)
+
+                if not blockchain_data:
+                    blockchain_text.insert(END, "No blockchain data found")
+                else:
+                    for block in blockchain_data:
+                        blockchain_text.insert(END, f"\nBlock {block['index']}:\n")
+                        blockchain_text.insert(END, f"Timestamp: {block['timestamp']}\n")
+                        blockchain_text.insert(END, f"Previous Hash: {block['previous_hash']}\n")
+                        blockchain_text.insert(END, "\nInteractions:\n")
+                        
+                        for interaction in block['interactions']:
+                            blockchain_text.insert(END, f"\nFrom: {interaction['sender']}\n")
+                            blockchain_text.insert(END, f"To: {interaction['recipient']}\n")
+                            blockchain_text.insert(END, f"Data: {interaction['data']}\n")
+                            blockchain_text.insert(END, "-" * 50 + "\n")
+
+                
+            except Exception as e:
+                blockchain_text.config(state="normal")
+                blockchain_text.delete(1.0, END)
+                blockchain_text.insert(END, f"Error: Error retrieving blockchain data: {str(e)}\n")
+                blockchain_text.config(state="disabled")
+                
+            blockchain_window.after(5000, update_blockchain_view) #refresh window every 5 seconds
+
+        update_blockchain_view()    
 
     def on_close(self):
         self.root.destroy()

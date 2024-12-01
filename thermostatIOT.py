@@ -5,6 +5,7 @@ from datetime import datetime
 from data.config import *
 import threading
 
+
 logging.basicConfig(
     filename='thermostat.log',
     level=logging.INFO,
@@ -188,7 +189,7 @@ class thermostatIOT(IOTDevice):
             self.blockchain.new_block(proof)
 
             #display the blockchain
-            self.display_blockchain()
+            #self.display_blockchain()
 
             logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
             return str(result)

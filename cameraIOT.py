@@ -44,10 +44,13 @@ class CameraIOT(IOTDevice):
             self.blockchain.new_block(proof)
 
             #display the blockchain
-            self.display_blockchain()
+            #self.display_blockchain()
 
-            logging.info(f"Camera {self.id}: Command '{command}' executed successfully with result: '{result}'")
-            return result
+            logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
+            return str(result)
+
+            #logging.info(f"Camera {self.id}: Command '{command}' executed successfully with result: '{result}'")
+            #return result
         except Exception as e:
             logging.error(f"Camera {self.id}: Error processing command '{command}': {e}")
             return f"ERROR: {str(e)}"

@@ -3,6 +3,7 @@ from Caesar import CaesarCipher
 from Blockchain import Blockchain
 import time
 from socket import *
+import json
 
 class Communicator:
     
@@ -49,7 +50,7 @@ class Communicator:
             self.blockchain.new_block(proof)
 
             #display the blockchain
-            self.display_blockchain()
+            #self.display_blockchain()
 
             # Format message
             if not isinstance(message, bytes):
@@ -59,7 +60,7 @@ class Communicator:
             cipher_text = self.encrypt(message).encode("utf-8")
 
             # Open a TCP connection and send the message
-            with socket(AF_INET, SOCK_STREAM) as s:
+            with socket.socket(AF_INET, SOCK_STREAM) as s:
                 s.connect(recipient)
                 s.sendall(cipher_text)
                 print(f"Sent message: {message} to {recipient}")
@@ -94,7 +95,7 @@ class Communicator:
             self.blockchain.new_block(proof)
 
             #display the blockchain
-            self.display_blockchain()
+            #self.display_blockchain()
             
             print(f"Received message: {plain_text} from {addr}")
             conn.close()
@@ -138,7 +139,7 @@ class Communicator:
             self.setPort(port)
 
             # Create and bind the TCP socket
-            self.commSocket = socket(AF_INET, SOCK_STREAM)
+            self.commSocket = socket.socket(AF_INET, SOCK_STREAM)
             self.commSocket.bind((self.ip, self.port))
             self.commSocket.listen(5)  # Listen for incoming connections
             print(f"Socket initialized and listening on {ip}:{port}")
@@ -147,9 +148,19 @@ class Communicator:
             print(f"Error initializing socket: {e}")
             raise
 
-    def get_blockchain_data(self):
+    def get_blockchain_data(self, device_id=None):
         """Returns formatted blockchain data for UI display or analysis"""
         try:
+            #if device_id is provided, get blockchain for specific device
+            if device_id:
+                if device_id not in self._authenticated_devices:
+                    raise ValueError(f"Device {device_id} not found")
+            
+                device_ip, device_port = self._authenticated_devices[device_id]
+                blockchain_data = self.request_blockchain_from_device(device_ip, device_port)
+            else:
+                blockchain = self.blockchain.chain
+
             blockchain_data = []
             for block in self.blockchain.chain:
                 block_data = {
@@ -164,6 +175,18 @@ class Communicator:
         
         except Exception as e:
             print(f"Error getting blockchain data: {e}")
+            return []
+    
+    def request_blockchain_from_device(self, device_ip, device_port):
+        #request blockchain data from specific device
+        try:
+            with socket.socket(AF_INET, SOCK_STREAM) as s:
+                s.connect((device_ip, device_port))
+                s.sendall(b"GET_BLOCKCHAIN_DATA")
+                response = s.recv(4096)
+                return json.loads(response)
+        except Exception as e:
+            print(f"Error requesting blockchain data from {device_ip}:{device_port}: {e}")
             return []
 
     def verify_blockchain(self):

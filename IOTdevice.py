@@ -1,6 +1,7 @@
 import logging
 from communicator import Communicator
 from socket import *
+import socket
 import json
 import time
 from Blockchain import Blockchain
@@ -13,10 +14,18 @@ class IOTDevice(Communicator):
         self.location = location
         self.tcp_port = None
         self.blockchain = Blockchain()
-        
         print(f"Initializing {self.device_type} device {self.id} at location: {self.location}")
 
+        #initializing logger for respective devices
+        self.logger = logging.getLogger(f"{self.device_type}_{self.id}")
+        self.logger.setLevel(logging.DEBUG)
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+
     #ideally this would be refactored to be able to have the UI display the live changes to the blockchains
+    '''
     def display_blockchain(self): #print blockchain into a txt file
         with open(f"{self.device_type}_{self.id}_blockchain.txt", "w") as file:
             file.write(f"Blockchain for {self.device_type} ({self.id}):\n")
@@ -27,10 +36,11 @@ class IOTDevice(Communicator):
             file.write(f"Proof: {block['proof']} \n")
             file.write(f"Interactions: {block['interactions']} \n")
         file.write("End of blockchain.\n")
-
+    '''
+    
     def start_TCP(self):
         try:
-            TCP_socket = socket(AF_INET, SOCK_STREAM)
+            TCP_socket = socket.socket(AF_INET, SOCK_STREAM)
             TCP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             TCP_socket.bind(("0.0.0.0", self.tcp_port))
             TCP_socket.listen(5)
@@ -73,7 +83,7 @@ class IOTDevice(Communicator):
                     "status": "sent"
                 }
             )
-            with socket(AF_INET, SOCK_STREAM) as tcp_socket:
+            with socket.socket(AF_INET, SOCK_STREAM) as tcp_socket:
                 tcp_socket.connect(recipient)
                 tcp_socket.sendall(message.encode("utf-8"))
                 print(f"{self.device_type} {self.id} sent: {message} to {recipient}")
@@ -112,7 +122,7 @@ class IOTDevice(Communicator):
             self.setIP(ip)
             self.setPort(port)
             self.tcp_port = port + 1000
-            self.commSocket = socket(AF_INET, SOCK_STREAM)
+            self.commSocket = socket.socket(AF_INET, SOCK_STREAM)
             self.commSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             self.commSocket.bind((self.ip, self.port))
             self.commSocket.listen(5)
@@ -151,15 +161,15 @@ class IOTDevice(Communicator):
             new_chain = json.loads(chain_data)
             if self.blockchain.is_valid_chain(new_chain):
                 self.blockchain.chain = new_chain
-                with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:
-                    file.write(f"Consensus Protocol Result:\n")
-                self.display_blockchain()
+                #with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:
+                    #file.write(f"Consensus Protocol Result:\n")
+                #self.display_blockchain()
                 return "ACK: Blockchain update successful"
             else:
-                with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:
-                    file.write(f"{self.device_type} {self.id}: Received invalid blockchain.")
+                #with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:
+                    #file.write(f"{self.device_type} {self.id}: Received invalid blockchain.")
                 return "Error: Received invalid blockchain"
         except Exception as e:
-            with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:
-                file.write(f"{self.device_type} {self.id}: Error updating blockchain: {e}")
+            #with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:
+                #file.write(f"{self.device_type} {self.id}: Error updating blockchain: {e}")
             return f"Error updating blockchain: {str(e)}"

@@ -14,7 +14,7 @@ class HubUI:
     def setup_ui(self):
          # Device Registration Frame
         reg_frame = ttk.LabelFrame(self.root, text="Device Registration")
-        reg_frame.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        reg_frame.grid(row=0, column=0, columnspan=2, padx=5, pady=8, sticky="nsew")
         Label(reg_frame, text="Device ID:").grid(row=0, column=0, padx=5, pady=5)
         Label(reg_frame, text="Device IP:").grid(row=1, column=0, padx=5, pady=5)
         Label(reg_frame, text="Device Port:").grid(row=2, column=0, padx=5, pady=5)

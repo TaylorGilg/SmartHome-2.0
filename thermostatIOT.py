@@ -4,6 +4,8 @@ import random, time
 from datetime import datetime
 from data.config import *
 import threading
+from socket import *
+import json
 
 logging.basicConfig(
     filename='thermostat.log',
@@ -25,139 +27,108 @@ class thermostatIOT(IOTDevice):
         logging.info(f"Thermostat {id} initialized at location: {location}")
         logging.info(f"Initial Temperature: {self._temperature}°F")
 
-    def get_temperature(self):
-        return f"Thermostat {self.id}: {str(self._temperature)}°F"
-    
     SPEED_MAPPING = {'high': 0.5, 'med': 0.3, 'low': 0.1}
-    
+
     @staticmethod
     def map_fan_speed(fan_speed):
         return thermostatIOT.SPEED_MAPPING.get(fan_speed, 0.5)
-    
-    def get_state(self):
-        return f"Thermostat {self.id}: {self._state}"
-    
-    def get_status(self):
-        return f"Thermostat {self.id}: {self._status}"
-    
-    def get_location(self):
-        return f"Thermostat {self.id} location: {self.location}"
-    
-    def set_location(self, new_location):
-        self.location = new_location
-        return f"Thermostat {self.id} location set to {new_location}"
-    
-    def set_state(self, state):
-        try:
-            if state in ["on", "off"]:
-                self._state = state
-                logging.info(f"Thermostat {self.id}: State set to {state}")
-                return f"Thermostat {self.id}: State set to {state}"
-            else:
-                raise Exception("Invalid message", state)
-        except Exception as e:
-            logging.error(f"Error setting state: {e}")
-            raise e
-    
-    def set_status(self, status):
-        try:
-            if self._state == "off":
-                raise Exception("off")
-            if status in ["Heating", "Cooling", "on"]:
-                self._status = status
-                return f"Thermostat {self.id}: Status set to {status}"
-            else:
-                raise Exception("Invalid message", status)
-        except Exception as e:
-            raise e
 
-    def turn_on_heater(self):
-        try:
-            self.set_state("on")
-            self.set_status("Heating")
-            return self.generate_sensor_data()
-        except Exception as e:
-            return f"ERROR in {self.id}: {str(e)}"
-        
-    def turn_on_ac(self):
-        try:
-            self.set_state("on")
-            self.set_status("Cooling")
-            return self.generate_sensor_data()
-        except Exception as e:
-            return f"ERROR in {self.id}: {str(e)}"
-        
-    def turn_off_thermostat(self):
-        try:
-            self.set_state("off")
-            self.set_status("off")
-            return self.generate_sensor_data()
-        except Exception as e:
-            return f"ERROR in {self.id}: {str(e)}"
-    
-    def set_temperature(self, message):
-        try:
-            # Split the input message to extract temperature and fan speed
-            message = message.split(",")
-            new_temperature = float(message[0])
-            fan_speed = message[1]
-            update_interval = 1
-
-            # Log the received command details
-            logging.info(f"Thermostat {self.id}: Received set_temperature command. Target: {new_temperature}°F, Fan Speed: {fan_speed}")
-
-            if fan_speed is not None:
-                self._fan_speed = self.map_fan_speed(fan_speed)
-                current_time = time.time()
-
-                # Gradually adjust the temperature until it reaches the desired range
-                while not (new_temperature - 0.5 <= self._temperature <= new_temperature + 0.5):
-                    if self._temperature > new_temperature:
-                        self.set_state("on")
-                        self.set_status("Cooling")
-                        self._temperature -= self._fan_speed
-                    elif self._temperature < new_temperature:
-                        self.set_state("on")
-                        self.set_status("Heating")
-                        self._temperature += self._fan_speed
-
-                    current_time += update_interval
-                    readable_time = datetime.fromtimestamp(current_time).strftime('%H:%M:%S')
-                    logging.info(f"Thermostat {self.id}: Adjusting Temperature: {round(self._temperature, 2)}°F | Time: {readable_time}")
-                    time.sleep(update_interval)
-
-            # Log the successful adjustment
-            result = f"Thermostat {self.id}: Reached {str(round(self._temperature, 2))}°F"
-            logging.info(result)
-            return result
-
-        except Exception as e:
-            # Log the error and return the error message
-            error_msg = f"ERROR in {self.id}: {str(e)}"
-            logging.error(error_msg)
-            return error_msg
-            
     def generate_random_temperature(self):
         return round(random.uniform(65, 75), 2)
-                
-    def generate_sensor_data(self):
+
+    def send(self, message, recipient):
         try:
-            self._fan_speed = self.map_fan_speed('med')
-            current_time = time.time()
-            readable_time = datetime.fromtimestamp(current_time).strftime('%H-%M-%S')
-            
-            if self.get_state() == "on":
-                if self._status == "Heating":
-                    self._temperature += self._fan_speed
-                if self._status == "Cooling":
-                    self._temperature -= self._fan_speed
-                    
-                print(f"Thermostat {self.id}: Temperature: {round(self._temperature, 2)}°F | Time: {readable_time}")
-                
-            return f"Thermostat {self.id}: Temperature: {round(self._temperature, 2)}°F at {readable_time}"
+            self.blockchain.new_interaction(
+                sender=f"{self.device_type}:{self.id}",
+                recipient=str(recipient),
+                data={
+                    "type": "response",
+                    "message": str(message),
+                    "location": self.location,
+                    "timestamp": time.time(),
+                    "status": "sent"
+                }
+            )
+            with socket(AF_INET, SOCK_STREAM) as tcp_socket:
+                tcp_socket.connect(recipient)
+                tcp_socket.sendall(message.encode("utf-8"))
+                print(f"{self.device_type} {self.id} sent: {message} to {recipient}")
         except Exception as e:
-            return f"ERROR in {self.id}: {str(e)}"
-            
+            logging.error(f"Error in send for {self.device_type} {self.id}: {e}")
+            raise
+
+    def receive(self):
+        try:
+            conn, addr = self.commSocket.accept()
+            data = conn.recv(4096).decode("utf-8")
+            if not data:
+                raise ValueError("Received empty data.")
+            plain_text = self.decrypt(data)
+            if plain_text.startswith("text:"):
+                plain_text = plain_text[5:]
+            self.blockchain.new_interaction(
+                sender=str(addr),
+                recipient=f"{self.device_type}:{self.id}",
+                data={
+                    "type": "command",
+                    "message": plain_text,
+                    "location": self.location,
+                    "timestamp": time.time(),
+                    "status": "received"
+                }
+            )
+            print(f"{self.device_type} {self.id} received: {plain_text}")
+            return plain_text, addr
+        except Exception as e:
+            logging.error(f"Error in receive for {self.device_type} {self.id}: {e}")
+            raise
+
+    def init_sockets(self, ip, port):
+        try:
+            self.setIP(ip)
+            self.setPort(port)
+            self.tcp_port = port + 1000
+            self.commSocket = socket(AF_INET, SOCK_STREAM)
+            self.commSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+            self.commSocket.bind((self.ip, self.port))
+            self.commSocket.listen(5)
+            print(f"{self.device_type} {self.id} initialized TCP socket on {ip}:{self.tcp_port}")
+        except Exception as e:
+            logging.error(f"Error initializing socket for {self.device_type} {self.id}: {e}")
+            raise
+
+    def start_TCP(self):
+        try:
+            TCP_socket = socket(AF_INET, SOCK_STREAM)
+            TCP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+            TCP_socket.bind(("0.0.0.0", self.tcp_port))
+            TCP_socket.listen(5)
+            print(f"{self.device_type} {self.id} listening for TCP connections on {self.ip}:{self.tcp_port}")
+
+            while True:
+                conn, addr = TCP_socket.accept()
+                try:
+                    request = conn.recv(4096).decode("utf-8")
+                    if not request:
+                        print(f"Empty request from {addr}.")
+                        continue
+                    if request == "GET_BLOCKCHAIN_DATA":
+                        response = json.dumps(self.blockchain.chain).encode("utf-8")
+                        conn.sendall(response)
+                    elif request.startswith("UPDATE_BLOCKCHAIN;"):
+                        chain_data = request.split(";", 1)[1]
+                        update_response = self.update_blockchain(chain_data)
+                        conn.sendall(update_response.encode("utf-8"))
+                    else:
+                        conn.sendall(b"Error: Unknown blockchain request")
+                except Exception as e:
+                    logging.error(f"Error handling TCP request from {addr}: {e}")
+                finally:
+                    conn.close()
+        except Exception as e:
+            logging.error(f"Error starting TCP server for {self.device_type} {self.id}: {e}")
+            raise
+
     def process_command(self, command, message=None):
         try:
             if command == "error":
@@ -174,20 +145,20 @@ class thermostatIOT(IOTDevice):
                 'set_location': self.set_location,
                 'get_blockchain_data': self.get_blockchain_data
             }
-            
+
             if command not in mapper:
                 logging.warning(f"Unknown command '{command}' received by Thermostat {self.id}")
                 return f"ERROR: Unknown command '{command}'"
-                
+
             result = mapper[command](message) if message else mapper[command]()
 
-            #log action and create a new block
-            self.blockchain.new_interaction(sender = self.id, recipient = "Hub", 
-            data = {"command": command, "message": message, "result": result})
+            # Log action and create a new block
+            self.blockchain.new_interaction(sender=self.id, recipient="Hub", 
+                                            data={"command": command, "message": message, "result": result})
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
 
-            #display the blockchain
+            # Display the blockchain
             self.display_blockchain()
 
             logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
@@ -197,6 +168,8 @@ class thermostatIOT(IOTDevice):
             logging.error(f"Error executing command '{command}' on Thermostat {self.id}: {e}")
             return f"ERROR from {self.id}: {str(e)}"
 
+
+# Main method to start thermostat IOT
 def start_thermostat(therm_id, location, ip, port):
     try:
         thermostat = thermostatIOT(therm_id, location)
@@ -237,6 +210,8 @@ def start_thermostat(therm_id, location, ip, port):
     except Exception as e:
         print(f"Fatal error in Thermostat {therm_id}: {str(e)}")
 
+
+# Entry point for running the thermostat IOT
 if __name__ == "__main__":
     import sys
     

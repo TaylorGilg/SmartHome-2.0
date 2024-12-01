@@ -3,6 +3,7 @@ from IOTdevice import IOTDevice
 from data.config import *
 import time
 
+#Sets up the logging for the Door Lock and the format has the time stamp for better tracebility.
 logging.basicConfig(
     filename='doorlock.log',
     level=logging.INFO,
@@ -19,6 +20,8 @@ class DoorLock(IOTDevice):
         self.location = location
         logging.info(f"DoorLock {id} initialized at location: {location}")
     
+    #Logs state changes (on/off) for the DoorLock
+    #Successful state changes are logged as INFO, invalid as ERROR
     def set_state(self, state):
         try:
             if state == "on" or state == "off":    
@@ -95,6 +98,7 @@ class DoorLock(IOTDevice):
         self.location = new_location
         return f"DoorLock {self.id} location set to {new_location}"
     
+    #Logs all received commands and their results.
     def process_command(self, command, message=None):
         try:
             if command == "error":
@@ -114,14 +118,17 @@ class DoorLock(IOTDevice):
             }
 
             if command not in mapper:
+                #warning
                 logging.warning(f"Unknown command '{command}' received by DoorLock {self.id}")
                 return f"ERROR: Unknown command '{command}'"
 
             result = mapper[command](message) if message else mapper[command]()
+            #info
             logging.info(f"Command '{command}' executed successfully on DoorLock {self.id} with result: {result}")
             return str(result)
 
         except Exception as e:
+            #error
             logging.error(f"Error executing command '{command}' on DoorLock {self.id}: {e}")
             return f"ERROR from {self.id}: {str(e)}"
 

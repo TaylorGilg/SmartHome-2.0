@@ -17,16 +17,17 @@ logging.basicConfig(
     format='%(asctime)s - %(message)s'
 )
 
+# Serves as the main cointroller of the IoT network - where commands are sent from and keeps track of all devices. Also manages blockchain consensus protocol while keeping track of device states. 
 class Hub(Communicator):
 
     def __init__(self, name, ip, port):
         super().__init__(name)
 
-        # assign private properties
+        # Dictionary to follow for every IoT device to keep track of them.
         self.name = name
-        self._authenticated_devices = {}  # {device_id: (ip, port)}
-        self._device_locations = {}      # {device_id: location}
-        self._ip_to_id = {}              # {(ip, port): device_id}
+        self._authenticated_devices = {} # Where each device is located
+        self._device_locations = {}      # Where each device is located
+        self._ip_to_id = {}              # Reverse lookup: get device_id from ip/port
         self._ip = ip
         self._port = int(port)
         self._buf = 1024 * 2
@@ -98,7 +99,8 @@ class Hub(Communicator):
             logging.error(f"Error initializing sockets: {e}")
             raise
 
-    #Consensus Protocol Methods: 
+    # Allows devices to be asked for their version of the blockchain through the specified TCP port.
+    # Returns a dictionary with device ID key and the device's blockchain.
 
     def request_blockchains(self):
         """Request blockchain data from devices via TCP"""
@@ -115,7 +117,11 @@ class Hub(Communicator):
                 print(f"Error getting blockchain data from {device_id}: {e}")
         return blockchains
     
-    #solves conflicts between varying ledgers between devices
+    #  Figures out which blockchain version is the "right" one.
+    #   Uses these rules:
+    #   1. Longest valid chain wins
+    #   2. If there's a tie, the chain with more total proof-of-work wins
+    #   3. If no valid chains found, use the hub's chain as fallback
     def solve_conflicts(self, blockchains):
         #holds longest valid blockchain
         longest_chain = None
@@ -147,9 +153,8 @@ class Hub(Communicator):
         else:
             return longest_chain
 
-    #takes in resolved chain and sends it out to devices via TCP connection
+    # Takes the winning blockchain and tells all devices to use it while waiting for acknowledgemnt.
     def update_devices(self, resolved_chain):
-        """Send resolved blockchain data to devices via TCP"""
         for device_id, (device_ip, device_port) in self._authenticated_devices.items():
             try:
                 device_tcp_port = int(device_port) + 1000
@@ -165,24 +170,29 @@ class Hub(Communicator):
             except Exception as e:
                 print(f"Error updating blockchain for {device_id}: {e}")
 
+# The main consensus loop that runs forever:
+# 1. Collect all blockchain versions
+# 2. Pick the winner
+# 3. Update everyone
+# 4. Wait 60 seconds
+# 5. Repeat
     def consensus_protocol(self): 
         while True:
             blockchains = self.request_blockchains()
             resolved_chain = self.solve_conflicts(blockchains)
             self.update_devices(resolved_chain)
-            time.sleep(60) #run protocol every 60 seconds after started 
+            time.sleep(60) # run protocol periodically every 60 seconds after started 
 
-    #the idea is to have a button to trigger consensus protocol to work every 60sec once all devices are registered via the UI
-    def start_consensus_protocol(self): #to run consensus protocol on its own thread once all devices have been registered
+    # Starts the consensus protocol in a separate thread so it doesn't block the rest of the hub's operations. Makes it a daemon thread so it'll stop when the program exits.
+    def start_consensus_protocol(self):
         consensus_thread = threading.Thread(target=self.consensus_protocol)
         consensus_thread.daemon = True
         consensus_thread.start()
-    
+        
+# First log the outgoing message in the blockchain bvefore sending. Creates a new interaction with metadata like timestamps and location.       
     def send(self, message, recipient):
-        """Send message to a device via TCP"""
         try:
             device_id = self.get_device_id(recipient[0], recipient[1])
-
             # Log the outgoing message
             self.blockchain.new_interaction(
                 sender=self.name,
@@ -195,7 +205,7 @@ class Hub(Communicator):
                 }
             )
             logging.info(f"Sending command '{message}' to device '{device_id}' at {recipient}")
-
+            # Actually sends the message with the TCP socket and ensures it gracefully closes in the presence of errors.
             with socket(AF_INET, SOCK_STREAM) as s:
                 s.connect(recipient)
                 s.sendall(message.encode("utf-8"))
@@ -207,20 +217,18 @@ class Hub(Communicator):
             print(f"Error sending message: {e}")
             raise
 
+# Receives a message from another device and logs it in the blockchain
     def receive(self):
-        """Receive message from a device via TCP"""
         try:
+            # Wait for the connection to be established before retriving 4096 bytes buffer.
             conn, addr = self.commSocket.accept()
             data = conn.recv(self._buf).decode("utf-8")
             plain_text = self.decrypt(data)
-
             # Get device ID
             device_id = self.get_device_id(addr[0], addr[1])
-
             # Remove text: prefix if present
             if plain_text.startswith("text:"):
                 plain_text = plain_text[5:]
-
             # Log the incoming message
             self.blockchain.new_interaction(
                 sender=device_id,

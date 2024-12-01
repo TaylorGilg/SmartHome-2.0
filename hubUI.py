@@ -3,6 +3,7 @@ from threading import Thread
 from hub import Hub
 from data.config import *
 
+# GUI that provides interface for device management and blockchain inspection.
 class HubUI:
     def __init__(self, hub):
         self.hub = hub
@@ -40,6 +41,7 @@ class HubUI:
         button_frame.grid(row=1, column=0, columnspan=2, pady=10)
         self.add_device_button = Button(button_frame, text="Add Device", command=self.add_device)
         self.send_button = Button(button_frame, text="Send Message", command=self.open_send_message_popup)
+        # Add blockchain viewer button
         self.view_blockchain_button = Button(button_frame, text="View Blockchain", command=self.view_blockchain)
         
         self.add_device_button.pack(side='left', padx=5)
@@ -181,17 +183,22 @@ class HubUI:
 
         self.device_list_text.config(state="disabled")
 
+    # Creates a window to view the complete blockchain. Shows entire history of device interactions and commands.
     def view_blockchain(self):
         blockchain_window = Toplevel(self.root)
         blockchain_window.title("Blockchain View")
         blockchain_window.geometry("800x600")
+        
+        # Setup blockchain display area
         blockchain_text = Text(blockchain_window, wrap="word", height=30, width=90)
         scrollbar = Scrollbar(blockchain_window, command=blockchain_text.yview)
         blockchain_text.configure(yscrollcommand=scrollbar.set)
         blockchain_text.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        # Get blockchain data from hub
         blockchain_data = self.hub.get_blockchain_data()
         
+        # Display each block and its interactions with the metadata formatting inline.
         for block in blockchain_data:
             blockchain_text.insert(END, f"\nBlock {block['index']}:\n")
             blockchain_text.insert(END, f"Timestamp: {block['timestamp']}\n")

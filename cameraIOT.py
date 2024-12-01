@@ -14,12 +14,14 @@ class CameraIOT(IOTDevice):
     """Simulate camera IOT with support for multiple instances.
         Each camera can be identified by a unique ID (e.g., 'cam1', 'cam2', 'outdoor_cam', etc.)
     """
+#Initialize the camera with blockchain capabilities.
     def __init__(self, id, location="unknown"):
         super().__init__(id, "Camera", location)
         self.status = "live"
         self.location = location
         logging.info(f"Camera {id} initialized at location: {location}")
     
+# Process commands received via TCP and log them to blockchain. Each command creates a new block in our chain for integrity.
     def process_command(self, command, message=None):
         """Process received command"""
         try:
@@ -37,13 +39,15 @@ class CameraIOT(IOTDevice):
 
             result = mapper[command](message) if message else mapper[command]()
 
-            #log action and create a new block
+            # Critical blockchain component: Log this command as a new interaction
             self.blockchain.new_interaction(sender = self.id, recipient = "Hub", 
             data = {"command": command, "message": message, "result": result})
+            
+            # Create new block with proof of work for tamper resistance
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
 
-            #display the blockchain
+            # Write updated blockchain to file for monitoring
             self.display_blockchain()
 
             logging.info(f"Camera {self.id}: Command '{command}' executed successfully with result: '{result}'")
@@ -79,20 +83,24 @@ class CameraIOT(IOTDevice):
             logging.error(f"Camera {self.id}: Error setting location: {e}")
             raise e
 
+# Initialize camera device with dual TCP servers
+# 1. Main port - For encrypted device commands
+# 2. Port+1000 - For blockchain consensus protocol
 def start_camera(camera_id, location, ip, port):
-    """Start the camera with TCP communication."""
     try:
         camera = CameraIOT(camera_id, location)
         camera.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
         camera.init_sockets(ip, port)  # Initialize sockets first
 
-        # Start TCP server on a separate thread for blockchain handling
+        # Start blockchain consensus TCP server in separate thread which lets us handle blockchain syncing without blocking camera commands or corrupting the socket.
         tcp_thread = threading.Thread(target=camera.start_TCP)
         tcp_thread.daemon = True  # Thread ends when the program exits
         tcp_thread.start()  # Start thread
         print(f"Camera {camera.id}: TCP server started for blockchain handling.")
 
         logging.info(f"Camera {camera_id}: Initialized at {location}, listening on {ip}:{port}")
+        
+        # main processing loop for commands to continuosly accept TCP connections on the port and log blockchain processes.
         while True:
             try:
                 # Accept incoming TCP connections

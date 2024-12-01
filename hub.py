@@ -8,7 +8,7 @@ from PIL import Image
 import traceback
 from data.config import *
 
-# Configure logging
+#sets up logging for the hub, written to hub.log
 logging.basicConfig(
     filename='hub.log',
     level=logging.INFO,
@@ -28,6 +28,8 @@ class Hub(Communicator):
         self.init_sockets()
         logging.info(f"Hub '{self.name}' initialized at {ip}:{port}")
 
+
+    
     def register_device(self, device_id, device_ip, device_port, location="unknown"):
         """Register a new device with the hub"""
         try:
@@ -49,6 +51,7 @@ class Hub(Communicator):
                     "status": "registered"
                 }
             )
+            #logs device registration with details such as IP, port and location
             logging.info(f"Device '{device_id}' registered at location: {location} (IP: {device_ip}, Port: {device_port})")
             print(f"Device {device_id} registered at {location}")
             

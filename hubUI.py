@@ -12,12 +12,12 @@ class HubUI:
         self.root.title("IoT Hub")
         
 
+        self.blockchain = Blockchain()
         self.setup_ui()
 
-        # initalizing the blockchain, added for consensus
-        print("Initializing blockchain...")  # Debugging statement
-        self.blockchain = Blockchain()
-        print("Blockchain initialized.")  # Debugging statement
+        # # initalizing the blockchain, added for consensus
+        # print("Initializing blockchain...")  # Debugging statement
+        # print("Blockchain initialized.")  # Debugging statement
 
     def setup_ui(self):
          # Device Registration Frame
@@ -75,6 +75,10 @@ class HubUI:
         self.receive_text['yscrollcommand'] = scrollbar_receive.set
         self.device_list_text['yscrollcommand'] = scrollbar_device_list.set
 
+        # Add result_label to display consensus result
+        self.result_label = Label(self.root, text="")
+        self.result_label.grid(row=4, column=0, columnspan=2, pady=10)
+
         # Start message receiving thread
         receive_thread = Thread(target=self.receive_messages)
         receive_thread.daemon = True
@@ -86,18 +90,20 @@ class HubUI:
     # adding this to test starting consensus button
     def start_consensus(self):
         try:
-            if self.blockchain.is_valid_chain():
-                result = "Blockchain is valid."
-                messagebox.showinfo("Consensus Result", result)
+            # Debug: Print the blockchain status
+            print(f"Blockchain Length: {len(self.blockchain.chain)}")
+            print(f"Blockchain Contents: {self.blockchain.chain}")
+            
+            # Check if the blockchain is valid
+            if self.blockchain.is_valid_chain():  # Check blockchain validity
+                self.result_label.config(text="Blockchain is valid!")
             else:
-                result = "Blockchain is invalid!"
-                messagebox.showerror("Consensus Result", result)
-            # Update UI with the result
-            self.result_label.config(text=result)
+                self.result_label.config(text="Blockchain is not valid!")
         except Exception as e:
-            error_message = f"Error during consensus: {str(e)}"
-            messagebox.showerror("Consensus Error", error_message)
+            # Print the error for debugging
+            print(f"Error during consensus: {str(e)}")
             self.result_label.config(text="Error occurred. Check logs.")
+            messagebox.showerror("Error", f"Error during consensus: {str(e)}")
 
 
     def add_device(self):

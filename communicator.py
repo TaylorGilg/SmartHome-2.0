@@ -66,7 +66,7 @@ class Communicator:
             if not isinstance(message, bytes):
                 message = "text:" + str(message)
             
-            # Encrypt message
+            # First encrypt the message, then encode to bytes
             cipher_text = self.encrypt(message).encode("utf-8")
 
             # Open a TCP connection and send the message
@@ -84,8 +84,9 @@ class Communicator:
         """Receive message using TCP"""
         try:
             conn, addr = self.commSocket.accept()  # Accept an incoming connection
-            data = conn.recv(self.buf).decode("utf-8")  # Receive data
-            plain_text = self.decrypt(data)
+            data = conn.recv(self.buf)  # Receive raw encrypted data
+            decoded_data = data.decode("utf-8")  # Decode from bytes
+            plain_text = self.decrypt(decoded_data)  # Decrypt the message
 
             # Remove text: prefix if present
             if plain_text.startswith("text:"):
@@ -152,6 +153,7 @@ class Communicator:
 
             # Create and bind the TCP socket
             self.commSocket = socket(AF_INET, SOCK_STREAM)
+            self.commSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             self.commSocket.bind((self.ip, self.port))
             self.commSocket.listen(5)  # Listen for incoming connections
             print(f"Socket initialized and listening on {ip}:{port}")
@@ -216,6 +218,24 @@ class Communicator:
         except Exception as e:
             print(f"Error setting encryption: {e}")
             raise
+
+    def display_blockchain(self):
+        """Display blockchain to file for monitoring"""
+        try:
+            with open(f"{self.id}_blockchain.txt", "w") as f:
+                for block in self.blockchain.chain:
+                    f.write(f"\nBlock {block['index']}:\n")
+                    f.write(f"Timestamp: {time.ctime(block['timestamp'])}\n")
+                    f.write(f"Previous Hash: {block['previous_hash']}\n")
+                    f.write(f"Proof: {block['proof']}\n")
+                    f.write("Interactions:\n")
+                    for interaction in block['interactions']:
+                        f.write(f"From: {interaction['sender']}\n")
+                        f.write(f"To: {interaction['recipient']}\n")
+                        f.write(f"Data: {interaction['data']}\n")
+                        f.write("-" * 50 + "\n")
+        except Exception as e:
+            print(f"Error displaying blockchain: {e}")
 
     def process_command(self):
         """Base method for command processing"""

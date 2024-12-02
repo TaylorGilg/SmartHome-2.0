@@ -54,7 +54,6 @@ Each device has their own blockchain (similar to a linked list where each block 
 
 - Messages between the hub and device should be visible over the network with Wireshark (tcp.port == <device port>). 
 - Due to refactoring to TCP, the hub will no longer have the port number 8080.
-- When cloning the repo
 
 ### Running Notes
 - When cloning from bit bucket you navigate to the project directory and press the clone button.

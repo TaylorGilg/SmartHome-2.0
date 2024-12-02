@@ -226,13 +226,7 @@ class HubUI:
                         blockchain_text.insert(END, f"\nBlock {block['index']}:\n")
                         blockchain_text.insert(END, f"Timestamp: {block['timestamp']}\n")
                         blockchain_text.insert(END, f"Previous Hash: {block['previous_hash']}\n")
-                        blockchain_text.insert(END, "\nInteractions:\n")
-                    
-                    for interaction in block['interactions']:
-                        blockchain_text.insert(END, f"\nFrom: {interaction['sender']}\n")
-                        blockchain_text.insert(END, f"To: {interaction['recipient']}\n")
-                        blockchain_text.insert(END, f"Data: {interaction['data']}\n")
-                        blockchain_text.insert(END, "-" * 50 + "\n")
+                        blockchain_text.insert(END, f"Interactions: {block['interactions']}\n")
 
                 blockchain_text.config(state="disabled")
                 

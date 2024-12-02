@@ -182,6 +182,16 @@ class Hub(Communicator):
                     response = s.recv(1024).decode("utf-8")
                     if response.startswith("ACK"):
                         print(f"Device {device_id} successfully updated blockchain")
+
+                        print("Resolved Blockchain: ")
+                        for block in resolved_chain:
+                            print(f"Block {block['index']}:\n")
+                            print(f"Timestamp: {block['timestamp']}\n")
+                            print(f"Previous Hash: {block['previous_hash']}\n")
+                            print(f"Proof: {block['proof']}\n")
+                            print(f"Interactions: {block['interactions']}\n")
+                        print("--End of Blockchain--\n")
+                        
                     else:
                         print(f"Device {device_id} failed to update {response}")
             except Exception as e:
@@ -192,7 +202,7 @@ class Hub(Communicator):
             blockchains = self.request_blockchains()
             resolved_chain = self.solve_conflicts(blockchains)
             self.update_devices(resolved_chain)
-            time.sleep(60) #run protocol every 60 seconds after started 
+            time.sleep(30) #run protocol every 60 seconds after started 
 
     #the idea is to have a button to trigger consensus protocol to work every 60sec once all devices are registered via the UI
     def start_consensus_protocol(self): #to run consensus protocol on its own thread once all devices have been registered

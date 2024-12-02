@@ -8,13 +8,13 @@ class HubUI:
         self.hub = hub
         self.root = Tk()
         self.root.title("IoT Hub")
-        
         self.setup_ui()
 
     def setup_ui(self):
-         # Device Registration Frame
+        self.root.geometry("600x500")
+        # Device Registration Frame
         reg_frame = ttk.LabelFrame(self.root, text="Device Registration")
-        reg_frame.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        reg_frame.grid(row=0, column=0, columnspan=2, padx=5, pady=8, sticky="nsew")
         Label(reg_frame, text="Device ID:").grid(row=0, column=0, padx=5, pady=5)
         Label(reg_frame, text="Device IP:").grid(row=1, column=0, padx=5, pady=5)
         Label(reg_frame, text="Device Port:").grid(row=2, column=0, padx=5, pady=5)
@@ -35,12 +35,7 @@ class HubUI:
         self.device_port_entry.grid(row=2, column=1, padx=5, pady=5)
         self.device_location_entry.grid(row=3, column=1, padx=5, pady=5)
 
-        # Device selection for blockchain data display
-        self.device_var = StringVar()
-        self.blockchain_device_dropdown = ttk.Combobox(self.root, textvariable = self.device_var)
-        self.blockchain_device_dropdown.grid(row=4, column=0, columnspan=2, pady=5)
-
-         # Buttons
+        # Buttons
         button_frame = ttk.Frame(self.root)
         button_frame.grid(row=1, column=0, columnspan=2, pady=10)
 
@@ -55,13 +50,17 @@ class HubUI:
         self.send_button.pack(side='left', padx=5)
         self.view_blockchain_button.pack(side='left', padx=5)
 
-         # Message Display
-        self.receive_text = Text(self.root, height=10, width=50)
-        self.device_list_text = Text(self.root, height=5, width=50)
+        # Message Display
+        self.receive_text = Text(self.root, height=10, width=70)
+        self.device_list_text = Text(self.root, height=5, width=70)
         self.receive_text.config(state="disabled")
         self.device_list_text.config(state="disabled")
 
-        self.receive_text.grid(row=2, column=0, columnspan=2, pady=10)
+        # Device selection for blockchain data display
+        self.device_var = StringVar()
+        self.blockchain_device_dropdown = ttk.Combobox(self.root, textvariable = self.device_var)
+        self.blockchain_device_dropdown.grid(row=2, column=0, columnspan=2, pady=10)
+
         self.device_list_text.grid(row=3, column=0, columnspan=2, pady=10)
 
         scrollbar_receive = Scrollbar(self.root, command=self.receive_text.yview)

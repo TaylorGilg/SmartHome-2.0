@@ -1,15 +1,16 @@
+# Blockchain class structure - This is where we are using blocks to keep track of all device interactions in our simulated network. The blocks are put ionto a chain.
 import hashlib
 import json
 from time import time
 
 class Blockchain:
-# Blockchain class structure
+# Starting with an empty chain that initializes with the genesis block - the foundation or anchor for our blochain structure.
     def __init__(self):
         self.chain = []
         self.current_interactions = []
-        self.new_block(previous_hash=1, proof=100)
+        self.new_block(previous_hash=1, proof=100) # Genesis here with initial valies!
 
-# Method to create a new block with a given proof and the previous hash on block to add it to the chain.
+# Creates a new block in our chain where each block contains an index, tiomestamp, interaction command, and a proof of work. We also have a hash to the previous block to reflect the chain structure. If there is no previous hash, we calculate it ourself which is crucial for the intergrity.
     def new_block(self, proof, previous_hash=None):
         block = {
             'index': len(self.chain) + 1,
@@ -22,7 +23,7 @@ class Blockchain:
         self.chain.append(block)
         return block
     
-# Adds a new interaction to a list of current interactions and returns the index of the block that holds the interaction.  
+# Every time a device makes an interaction, it is logged with this function. We are returning the index of the block that will hold the interaction. 
     def new_interaction(self, sender, recipient, data):
         self.current_interactions.append({
             'sender': sender,
@@ -42,21 +43,21 @@ class Blockchain:
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
     
-# Proof of Work Algorithm: First find a number p' such that hash(pp') contains leading 4 zeroes. P is previous proof.
+# Proof of Work Algorithm: Security feature where the goal is to find a number that, when combined with the previous block's proof, creates a hash that starts with 4 zeros - similar to Bitcoin's concept but simpler.
     def proof_of_work(self, last_proof):
         proof = 0
         while self.valid_proof(last_proof, proof) is False:
             proof += 1
         return proof
     
-# Validates the proof by checking if the hash contain 4 leading 0s
+# Validates the proof by checking if the hash contains 4 leading 0s
     @staticmethod
     def valid_proof(last_proof, proof):
         guess = f'{last_proof}{proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
     
-#  Determine if a given blockchain is valid by checking hash linkage and proofs    
+#  Determine if a given blockchain is valid by ensuring each block points to the right previous block (chain isn't broken) amd all the proofs of work are correct. Super important for detecting if someone messed with our chain.    
     def is_valid_chain(self):
         for i in range(1, len(self.chain)):
             current_block = self.chain[i]

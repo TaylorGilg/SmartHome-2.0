@@ -11,6 +11,11 @@ logging.basicConfig(
     format='%(asctime)s - %(message)s'
 )
 
+# DoorLock IoT device that extends IOTDevice.
+# Implements secure door lock functionality with
+# TCP command communication
+# Blockchain logging for tamper-proof operation history
+# Separate TCP server for blockchain consensus
 class DoorLock(IOTDevice):
     def __init__(self, id, location="unknown"):
         super().__init__(id, "DoorLock", location)
@@ -102,6 +107,7 @@ class DoorLock(IOTDevice):
         logging.info(f"DoorLock {self.id}: Location updated to {new_location}")
         return f"DoorLock {self.id} location set to {new_location}"
 
+    # Process received commands and log them to blockchain where each command interaction creates a new block for chaining.
     def process_command(self, command, message=None):
         try:
             # Split command and MAC
@@ -134,18 +140,24 @@ class DoorLock(IOTDevice):
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
 
-            logging.info(f"Command '{command}' executed successfully on DoorLock {self.id}")
-            return result
+
+            logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
+            return str(result)
+        
         except Exception as e:
             logging.error(f"Error executing command '{command}': {e}")
             return f"ERROR from {self.id}: {e}"
 
+# Initialize and start doorlock device with dual TCP servers
+# 1. Main port: Handles encrypted device commands
+# 2. Port+1000: Dedicated to blockchain consensus protocol
 def start_doorlock(lock_id, location, ip, port):
     try:
         lock = DoorLock(lock_id, location)
         lock.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
         lock.init_sockets(ip, port)
 
+        # Start blockchain consensus server in separate thread
         tcp_thread = threading.Thread(target=lock.start_TCP)
         tcp_thread.daemon = True
         tcp_thread.start()

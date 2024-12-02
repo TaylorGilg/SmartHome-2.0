@@ -5,14 +5,17 @@ from datetime import datetime
 from data.config import *
 import threading
 
+
 logging.basicConfig(
     filename='thermostat.log',
     level=logging.INFO,
     format='%(asctime)s - %(message)s'
 )
 
+# IoT Thermostat device with blockchain logging and dual TCP servers.
 class thermostatIOT(IOTDevice):
 
+    # Initialize the thermostat with blockchain capabilities.
     def __init__(self, id, location="unknown"):
         super().__init__(id, "Thermostat", location)
         self.id = id
@@ -158,6 +161,7 @@ class thermostatIOT(IOTDevice):
         except Exception as e:
             return f"ERROR in {self.id}: {str(e)}"
             
+    # Process commands received via TCP and log them to blockchain. Each command creates a new block in our chain for integrity.
     def process_command(self, command, message=None):
         try:
             # Split command and MAC
@@ -185,11 +189,15 @@ class thermostatIOT(IOTDevice):
                 
             result = mapper[command](message) if message else mapper[command]()
 
-            #log action and create a new block
+            # Critical blockchain component: Log this command as a new interaction
             self.blockchain.new_interaction(sender = self.id, recipient = "Hub", 
             data = {"command": command, "message": message, "result": result})
+            # Create new block with proof of work
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
+
+            #display the blockchain
+            self.display_blockchain()
 
             logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
             return str(result)
@@ -198,6 +206,9 @@ class thermostatIOT(IOTDevice):
             logging.error(f"Error executing command '{command}' on Thermostat {self.id}: {e}")
             return f"ERROR from {self.id}: {str(e)}"
 
+# Initialize and start thermostat with dual TCP servers
+# 1. Main port: Handles encrypted device commands
+# 2. Port+1000: Dedicated to blockchain consensus protocol
 def start_thermostat(therm_id, location, ip, port):
     try:
         thermostat = thermostatIOT(therm_id, location)

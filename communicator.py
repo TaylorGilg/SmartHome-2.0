@@ -5,17 +5,27 @@ import time
 from socket import *
 import hmac
 import hashlib
+import json
 
 class Communicator:
+# Base communication class that facillitates
+# 1. TCP socket communication
+# 2. Message encryption/decryption
+# 3. Blockchain logging of all communications
+# 4. Command parsing
+# This serves as the foundation for all IoT device communcation in our network.
     
     def __init__(self, id):
         self.id = id
+        # TCP connection properties
         self.ip = None
         self.port = None
         self.commSocket = None
+        # Encryption settings
         self.cipher = None
         self.enableEncryption = False
         self.buf = 1024
+        # Initialize blockchain for logging all communications
         self.blockchain = Blockchain()
         self.mac_key = b"super_secret_key"  # Shared key for HMAC
         print(f"Communicator initialized with ID: {id}")
@@ -45,6 +55,7 @@ class Communicator:
         else:
             return encrypted_message
 
+# Send a message via TCP and log it to blockchain. This provides both communication and an immutable record.
     def send(self, message, recipient):
         """Send message using TCP"""
         try:
@@ -63,8 +74,12 @@ class Communicator:
                     "status": "sent"
                 }
             )
+            # Create new block with proof of work
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
+
+            #display the blockchain
+            self.display_blockchain()
 
             # Format message
             if not isinstance(message, bytes):
@@ -74,7 +89,7 @@ class Communicator:
             cipher_text = self.encrypt(message_with_mac).encode("utf-8")
 
             # Open a TCP connection and send the message
-            with socket(AF_INET, SOCK_STREAM) as s:
+            with socket.socket(AF_INET, SOCK_STREAM) as s:
                 s.connect(recipient)
                 s.sendall(cipher_text)
                 print(f"Sent message: {message} to {recipient}")
@@ -83,6 +98,7 @@ class Communicator:
             print(f"Error in send: {e}")
             raise
 
+    # Receive and log incoming TCP messages. Each received message is decrypted and logged to blockchain.
     def receive(self):
         """Receive message using TCP"""
         try:
@@ -104,7 +120,7 @@ class Communicator:
             if plain_text.startswith("text:"):
                 plain_text = plain_text[5:]
             
-            # Log the incoming message
+            # Log received message to blockchain
             self.blockchain.new_interaction(
                 sender=str(addr),
                 recipient=self.id,
@@ -117,6 +133,9 @@ class Communicator:
             )
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
+
+            #display the blockchain
+            self.display_blockchain()
             
             print(f"Received message: {plain_text} from {addr}")
             conn.close()
@@ -153,6 +172,7 @@ class Communicator:
             print(f"Error parsing command: {e}")
             return "error", str(e)
         
+    # Initialize TCP socket for device communication.
     def init_sockets(self, ip, port):
         """Initialize TCP socket"""
         try:
@@ -160,7 +180,7 @@ class Communicator:
             self.setPort(port)
 
             # Create and bind the TCP socket
-            self.commSocket = socket(AF_INET, SOCK_STREAM)
+            self.commSocket = socket.socket(AF_INET, SOCK_STREAM)
             self.commSocket.bind((self.ip, self.port))
             self.commSocket.listen(5)  # Listen for incoming connections
             print(f"Socket initialized and listening on {ip}:{port}")
@@ -169,9 +189,20 @@ class Communicator:
             print(f"Error initializing socket: {e}")
             raise
 
-    def get_blockchain_data(self):
+# Format blockchain data for UI display. Shows complete history of all device communications.
+    def get_blockchain_data(self, device_id=None):
         """Returns formatted blockchain data for UI display or analysis"""
         try:
+            #if device_id is provided, get blockchain for specific device
+            if device_id:
+                if device_id not in self._authenticated_devices:
+                    raise ValueError(f"Device {device_id} not found")
+            
+                device_ip, device_port = self._authenticated_devices[device_id]
+                blockchain_data = self.request_blockchain_from_device(device_ip, device_port)
+            else:
+                blockchain = self.blockchain.chain
+
             blockchain_data = []
             for block in self.blockchain.chain:
                 block_data = {
@@ -187,7 +218,20 @@ class Communicator:
         except Exception as e:
             print(f"Error getting blockchain data: {e}")
             return []
+    
+    def request_blockchain_from_device(self, device_ip, device_port):
+        #request blockchain data from specific device
+        try:
+            with socket.socket(AF_INET, SOCK_STREAM) as s:
+                s.connect((device_ip, device_port))
+                s.sendall(b"GET_BLOCKCHAIN_DATA")
+                response = s.recv(4096)
+                return json.loads(response)
+        except Exception as e:
+            print(f"Error requesting blockchain data from {device_ip}:{device_port}: {e}")
+            return []
 
+   # Check if our blockchain is valid and hasn't been tampered with
     def verify_blockchain(self):
         """Verifies the integrity of the blockchain"""
         try:
@@ -196,7 +240,7 @@ class Communicator:
             print(f"Error verifying blockchain: {e}")
             return False
 
-    # Setters
+    # Setters for our configuration methods.
     def setIP(self, ipaddr):
         self.ip = ipaddr
 

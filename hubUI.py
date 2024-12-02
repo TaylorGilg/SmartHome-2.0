@@ -1,15 +1,23 @@
-from tkinter import Tk, Label, Entry, Button, Text, Scrollbar, Toplevel, END, messagebox, ttk
+from tkinter import Tk, Label, Entry, Button, Text, Scrollbar, Toplevel, END, messagebox, ttk, StringVar
 from threading import Thread
 from hub import Hub
 from data.config import *
+from Blockchain import Blockchain
 
+# GUI that provides interface for device management and blockchain inspection.
 class HubUI:
     def __init__(self, hub):
         self.hub = hub
         self.root = Tk()
         self.root.title("IoT Hub")
         
+
+        self.blockchain = Blockchain()
         self.setup_ui()
+
+        # # initalizing the blockchain, added for consensus
+        # print("Initializing blockchain...")  # Debugging statement
+        # print("Blockchain initialized.")  # Debugging statement
 
     def setup_ui(self):
          # Device Registration Frame
@@ -35,14 +43,22 @@ class HubUI:
         self.device_port_entry.grid(row=2, column=1, padx=5, pady=5)
         self.device_location_entry.grid(row=3, column=1, padx=5, pady=5)
 
+        # Device selection for blockchain data display
+        self.device_var = StringVar()
+        self.blockchain_device_dropdown = ttk.Combobox(self.root, textvariable = self.device_var)
+        self.blockchain_device_dropdown.grid(row=4, column=0, columnspan=2, pady=5)
+
          # Buttons
         button_frame = ttk.Frame(self.root)
         button_frame.grid(row=1, column=0, columnspan=2, pady=10)
         self.add_device_button = Button(button_frame, text="Add Device", command=self.add_device)
+        self.start_consensus_button = Button(button_frame, text="Start Consensus", command= self.start_consensus)
         self.send_button = Button(button_frame, text="Send Message", command=self.open_send_message_popup)
+        # Add blockchain viewer button
         self.view_blockchain_button = Button(button_frame, text="View Blockchain", command=self.view_blockchain)
         
         self.add_device_button.pack(side='left', padx=5)
+        self.start_consensus_button.pack(side='left', padx=5)
         self.send_button.pack(side='left', padx=5)
         self.view_blockchain_button.pack(side='left', padx=5)
 
@@ -64,6 +80,10 @@ class HubUI:
         self.receive_text['yscrollcommand'] = scrollbar_receive.set
         self.device_list_text['yscrollcommand'] = scrollbar_device_list.set
 
+        # Add result_label to display consensus result
+        self.result_label = Label(self.root, text="")
+        self.result_label.grid(row=4, column=0, columnspan=2, pady=10)
+
         # Start message receiving thread
         receive_thread = Thread(target=self.receive_messages)
         receive_thread.daemon = True
@@ -71,6 +91,25 @@ class HubUI:
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.root.mainloop()
+
+    # adding this to test starting consensus button
+    def start_consensus(self):
+        try:
+            # Debug: Print the blockchain status
+            print(f"Blockchain Length: {len(self.blockchain.chain)}")
+            print(f"Blockchain Contents: {self.blockchain.chain}")
+            
+            # Check if the blockchain is valid
+            if self.blockchain.is_valid_chain():  # Check blockchain validity
+                self.result_label.config(text="Blockchain is valid!")
+            else:
+                self.result_label.config(text="Blockchain is not valid!")
+        except Exception as e:
+            # Print the error for debugging
+            print(f"Error during consensus: {str(e)}")
+            self.result_label.config(text="Error occurred. Check logs.")
+            messagebox.showerror("Error", f"Error during consensus: {str(e)}")
+
 
     def add_device(self):
         device_id = self.device_id_entry.get()
@@ -99,9 +138,7 @@ class HubUI:
     def open_send_message_popup(self):
         popup = Toplevel(self.root)
         popup.title("Send Message")
-        popup.geometry("400x300")
-
-        popup.geometry("400x300")
+        popup.geometry("500x300")
         # Get list of registered devices
         devices = list(self.hub._authenticated_devices.keys())
         
@@ -111,17 +148,17 @@ class HubUI:
         device_var.grid(row=0, column=1, padx=5, pady=5)
         
         # Command selection
-        Label(popup, text="Command:").grid(row=1, column=0, padx=5, pady=5)
+        Label(popup, text="Command:").grid(row=1, column=0, padx=5, pady=10)
         command_entry = Entry(popup)
         command_entry.grid(row=1, column=1, padx=5, pady=5)
         
         # Parameter input
-        Label(popup, text="Parameter (optional):").grid(row=2, column=0, padx=5, pady=5)
+        Label(popup, text="Parameter (optional):").grid(row=2, column=0, padx=5, pady=10)
         param_entry = Entry(popup)
         param_entry.grid(row=2, column=1, padx=5, pady=5)
         # Help text
-        help_text = Text(popup, height=8, width=40)
-        help_text.grid(row=3, column=0, columnspan=2, padx=5, pady=5)
+        help_text = Text(popup, height=8, width=60)
+        help_text.grid(row=3, column=0, columnspan=5, padx=6, pady=8)
         help_text.insert(END, "Common Commands:\n\n"
                         "Cameras: get_status, set_status, get_location\n"
                         "DoorLocks: get_state, set_state, get_status, set_status\n"
@@ -181,29 +218,63 @@ class HubUI:
 
         self.device_list_text.config(state="disabled")
 
+    # Creates a window to view the complete blockchain. Shows entire history of device interactions and commands.
+        #update device dropdown for blockchain view
+        device_ids = list(self.hub._authenticated_devices.keys())
+        self.blockchain_device_dropdown['values'] = device_ids
+        if device_ids:
+            self.blockchain_device_dropdown.set(device_ids[0])
+
     def view_blockchain(self):
+
+        selected_device = self.device_var.get()
+        if not selected_device:
+            messagebox.showerror("Error", "Please select a device.")
+            return
+
         blockchain_window = Toplevel(self.root)
-        blockchain_window.title("Blockchain View")
+        blockchain_window.title(f"Blockchain View - {selected_device}")
         blockchain_window.geometry("800x600")
+        # Setup blockchain display area
         blockchain_text = Text(blockchain_window, wrap="word", height=30, width=90)
         scrollbar = Scrollbar(blockchain_window, command=blockchain_text.yview)
         blockchain_text.configure(yscrollcommand=scrollbar.set)
         blockchain_text.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        # Get blockchain data from hub
         blockchain_data = self.hub.get_blockchain_data()
         
-        for block in blockchain_data:
-            blockchain_text.insert(END, f"\nBlock {block['index']}:\n")
-            blockchain_text.insert(END, f"Timestamp: {block['timestamp']}\n")
-            blockchain_text.insert(END, f"Previous Hash: {block['previous_hash']}\n")
-            blockchain_text.insert(END, "\nInteractions:\n")
-            
-            for interaction in block['interactions']:
-                blockchain_text.insert(END, f"\nFrom: {interaction['sender']}\n")
-                blockchain_text.insert(END, f"To: {interaction['recipient']}\n")
-                blockchain_text.insert(END, f"Data: {interaction['data']}\n")
-                blockchain_text.insert(END, "-" * 50 + "\n")
-        blockchain_text.config(state="disabled")
+        def update_blockchain_view(): 
+            try: 
+                blockchain_data = self.hub.get_blockchain_data(selected_device)
+                blockchain_text.config(state="normal")
+                blockchain_text.delete(1.0, END)
+
+                if not blockchain_data:
+                    blockchain_text.insert(END, "No blockchain data found")
+                else:
+                    for block in blockchain_data:
+                        blockchain_text.insert(END, f"\nBlock {block['index']}:\n")
+                        blockchain_text.insert(END, f"Timestamp: {block['timestamp']}\n")
+                        blockchain_text.insert(END, f"Previous Hash: {block['previous_hash']}\n")
+                        blockchain_text.insert(END, "\nInteractions:\n")
+                        
+                        for interaction in block['interactions']:
+                            blockchain_text.insert(END, f"\nFrom: {interaction['sender']}\n")
+                            blockchain_text.insert(END, f"To: {interaction['recipient']}\n")
+                            blockchain_text.insert(END, f"Data: {interaction['data']}\n")
+                            blockchain_text.insert(END, "-" * 50 + "\n")
+
+                
+            except Exception as e:
+                blockchain_text.config(state="normal")
+                blockchain_text.delete(1.0, END)
+                blockchain_text.insert(END, f"Error: Error retrieving blockchain data: {str(e)}\n")
+                blockchain_text.config(state="disabled")
+                
+            blockchain_window.after(5000, update_blockchain_view) #refresh window every 5 seconds
+
+        update_blockchain_view()    
 
     def on_close(self):
         self.root.destroy()

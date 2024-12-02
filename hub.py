@@ -209,6 +209,11 @@ class Hub(Communicator):
                 s.sendall(message_with_mac.encode("utf-8"))
                 logging.info(f"Message sent to device '{device_id}': {message_with_mac}")
                 print(f"Sent message to {device_id}: {message}")
+        #jr's code exception for hub
+        except Exception as e:
+            logging.error(f"Error sending message to device at {recipient}: {e}")
+            print(f"Error sending message: {e}")
+            raise
 
 def start_hub(name):
     """Main hub control loop with proper encryption"""
@@ -225,15 +230,22 @@ def start_hub(name):
                 # Use parent Communicator's receive method which handles encryption
                 message, addr = hub.receive()
                 device_id = hub.get_device_id(addr[0], addr[1])
-            # Split the message and MAC
-            if "|" in data:
-                message, mac = data.rsplit("|", 1)
+                # Split the message and MAC
+                if "|" in data:
+                    message, mac = data.rsplit("|", 1)
 
-                # Verify the MAC
-                if not self.verify_mac(message, mac):
-                    raise ValueError("Invalid MAC. Message integrity check failed.")
-            else:
-                raise ValueError("Message format invalid: Missing MAC.")
+                    # Verify the MAC
+                    if not self.verify_mac(message, mac):
+                        raise ValueError("Invalid MAC. Message integrity check failed.")
+                    else:
+                        raise ValueError("Message format invalid: Missing MAC.")
+                
+                #aaqils try exception
+            except Exception as e:
+                error_msg = f"Error in Hub: {str(e)}"
+                logging.error(error_msg)
+                print(error_msg)
+                continue
 
     except Exception as e:
         logging.critical(f"Fatal error in Hub: {str(e)}")

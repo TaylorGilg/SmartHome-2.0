@@ -11,17 +11,17 @@
 ## Contributions To The Project
 
 - **Taylor Gilg**
-- Implemented Blockchain Consensus Protocol & TCP for Blockchain Communications.
+Implemented Blockchain Consensus Protocol & TCP for Blockchain Communications.
 - **Barsha Dhakal**
-- Implemented log files for hub and device general actions.
+Implemented log files for hub and device general actions.
 - **Aaqil Razak**
-- Implemented Blockchain Structure & Refactored General Communications from UDP to TCP.
+Implemented Blockchain Structure & Refactored General Communications from UDP to TCP.
 - **Tyler K Conwell**
-- Refactored UI for Blockchain Demonstration.
+Refactored UI for Blockchain Demonstration.
 - **Galavardino Sousa Jr.** 
-- Implemented MAC Authentication.
+Implemented MAC Authentication.
 
-# Description
+## Description
 
 ###  Authentication and Trust
 
@@ -31,10 +31,10 @@ Our demonstration utilizes blockchain structures to uphold integrity principles 
 
 Each device has their own blockchain (similar to a linked list where each block is an object of properties that log individual device events and interactions). The hub periodically requests the chains of all devices. In the case that any of the devices have a differing record of events, the longest, valid chain is used to resolve conflicts. The hub then sends this resolved chain out to all the devices for them to update their own ledgers. 
 
-# Notes
+## Notes
 - RealCameraIOT.py was largely left untouched and not included in our scope of contributions since we did not have the hardware the original team had to accommodate its code. 
 
-# How to Run
+## How to Run
 1. In config.py make sure all device and hub IP's match your own IP (use the ipconfig command in a command prompt terminal to find your personal IP address). 
 
 2. Run desired devices (thermostatIOT.py, cameraIOT.py, doorlockIOT.py). Running each should open up respective terminals. There should be an example that prints in each terminal on how to format a command to instantiate the devices. 
@@ -53,9 +53,9 @@ Each device has their own blockchain (similar to a linked list where each block 
 - Messages between the hub and device should be visible over the network with Wireshark (tcp.port == <device port>). 
 - Due to refactoring to TCP, the hub will no longer have the port number 8080.
 
-# Files
+## Files
 
-## Executables
+### Executables
 
 - All devices (and hub) generate their own record keeping log (does not print blockchains).
 - cameraIOT.py: simulates a security camera IoT device.
@@ -65,7 +65,7 @@ Each device has their own blockchain (similar to a linked list where each block 
 - realCameraIOT.py: executable that runs an actual security camera IoT (note: this file was not refactored for this contribution).
 - thermostatIOT.py: simulates a thermostat
 
-## Utility
+### Utility
 
 - config.py: ports and ip addressed for hub and devices.
 - Caesar.py: provides Caesar Cipher for devices.

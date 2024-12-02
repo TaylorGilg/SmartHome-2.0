@@ -6,6 +6,7 @@ from data.config import *
 import threading
 
 
+#sets up logging for Thermostat, the logs are written to thermostat.log
 logging.basicConfig(
     filename='thermostat.log',
     level=logging.INFO,
@@ -96,6 +97,7 @@ class thermostatIOT(IOTDevice):
         except Exception as e:
             return f"ERROR in {self.id}: {str(e)}"
     
+    #Logs temperature adjustments for the device.
     def set_temperature(self, message):
         try:
             # Split the input message to extract temperature and fan speed
@@ -124,6 +126,7 @@ class thermostatIOT(IOTDevice):
 
                     current_time += update_interval
                     readable_time = datetime.fromtimestamp(current_time).strftime('%H:%M:%S')
+                    #logs incremental adjustments during the temperature change
                     logging.info(f"Thermostat {self.id}: Adjusting Temperature: {round(self._temperature, 2)}°F | Time: {readable_time}")
                     time.sleep(update_interval)
 

@@ -56,11 +56,13 @@ class Blockchain:
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
     
-#  Determine if a given blockchain is valid by checking hash linkage and proofs    
-    def is_valid_chain(self):
-        for i in range(1, len(self.chain)):
-            current_block = self.chain[i]
-            previous_block = self.chain[i - 1]
+# Determine if a given blockchain is valid by checking hash linkage and proofs  
+    def is_valid_chain(self, chain=None):
+        validate_chain = chain if chain is not None else self.chain
+        
+        for i in range(1, len(validate_chain)):
+            current_block = validate_chain[i]
+            previous_block = validate_chain[i - 1]
             # Check that the hash of the block is correct
             if current_block['previous_hash'] != self.hash(previous_block):
                 return False

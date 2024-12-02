@@ -3,6 +3,7 @@ from IOTdevice import IOTDevice
 from data.config import *
 import time
 import threading
+import hmac
 
 logging.basicConfig(
     filename='camera.log',
@@ -99,24 +100,43 @@ def start_camera(camera_id, location, ip, port):
             try:
                 # Accept incoming TCP connections
                 conn, addr = camera.commSocket.accept()
-                response = conn.recv(4096).decode("utf-8")
-                logging.info(f"Camera {camera_id}: Received message: {response} from {addr}")
-                if response == "exit":
+                encrypted_data = conn.recv(4096).decode("utf-8")
+                logging.info(f"Camera {camera_id}: Received encrypted message from {addr}")
+                
+                if encrypted_data == "exit":
                     break
 
-                # Separate the MAC from the command
-                if "|" in response:
-                    response, _ = response.rsplit("|", 1) # Discard the MAC
-                    print(f"Thermostat {camera_id} parsed command: {response.strip()}")
+                # Split message and MAC
+                if "|" in encrypted_data:
+                    encrypted_message, mac = encrypted_data.rsplit("|", 1)
+                    encrypted_message = encrypted_message.strip()
+                    mac = mac.strip()
 
-                command, message = camera.parse_command(response)
-                output = camera.process_command(command, message)
+                    # Verify MAC
+                    if not hmac.compare_digest(camera.generate_mac(encrypted_message), mac):
+                        conn.sendall("ERROR: Invalid MAC".encode("utf-8"))
+                        continue
 
-                logging.info(f"Camera {camera_id}: Sending response: {output}")
-                print(f"Camera {camera_id} sending response: {output}")
-                print() # Spacing for clean output
-                conn.sendall(output.encode("utf-8"))
+                    # Decrypt the message after MAC verification
+                    response = camera.decrypt(encrypted_message)
+                    print(f"Camera {camera_id} received decrypted: {response}")
+
+                    command, message = camera.parse_command(response)
+                    output = camera.process_command(command, message)
+
+                    # Encrypt the response
+                    encrypted_output = camera.encrypt(output)
+                    response_mac = camera.generate_mac(encrypted_output)
+                    final_response = f"{encrypted_output} | {response_mac}"
+
+                    logging.info(f"Camera {camera_id}: Sending encrypted response")
+                    print(f"Camera {camera_id} sending encrypted response")
+                    print() # Spacing for clean output
+                    conn.sendall(final_response.encode("utf-8"))
+                else:
+                    conn.sendall("ERROR: Invalid message format".encode("utf-8"))
                 conn.close()
+                
             except Exception as e:
                 error_msg = f"Error in Camera {camera_id}: {str(e)}"
                 logging.error(error_msg)

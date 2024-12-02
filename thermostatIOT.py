@@ -4,7 +4,7 @@ import random, time
 from datetime import datetime
 from data.config import *
 import threading
-
+import hmac
 
 logging.basicConfig(
     filename='thermostat.log',
@@ -192,9 +192,6 @@ class thermostatIOT(IOTDevice):
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
 
-            #display the blockchain
-            #self.display_blockchain()
-
             logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
             return str(result)
 
@@ -219,35 +216,54 @@ def start_thermostat(therm_id, location, ip, port):
         while True:
             try:
                 conn, addr = thermostat.commSocket.accept()  # TCP accept
-                response = conn.recv(4096).decode("utf-8")
-                if response == "exit":
+                encrypted_data = conn.recv(4096).decode("utf-8")
+                if encrypted_data == "exit":
                     break
 
-                 # Separate the MAC from the command
-                if "|" in response:
-                    response, _ = response.rsplit("|", 1) # Discard the MAC
-                    print(f"Thermostat {therm_id} parsed command: {response.strip()}")
+                # Split message and MAC
+                if "|" in encrypted_data:
+                    encrypted_message, mac = encrypted_data.rsplit("|", 1)
+                    encrypted_message = encrypted_message.strip()
+                    mac = mac.strip()
 
+                    # Verify MAC
+                    if not hmac.compare_digest(thermostat.generate_mac(encrypted_message), mac):
+                        conn.sendall("ERROR: Invalid MAC".encode("utf-8"))
+                        continue
+
+                    # Decrypt the message after MAC verification
+                    response = thermostat.decrypt(encrypted_message)
                     
-                logging.info(f"Thermostat {therm_id}: received: {response}")
-                print(f"Thermostat {therm_id} received: {response}")
-                command, message = thermostat.parse_command(response)
-                output = thermostat.process_command(command, message)
-                
-                logging.info(f"Thermostat {therm_id}: Sending response: {output}")
-                print(f"Thermostat {therm_id} sending response: {output}")
-                print() # Spacing for clean output
-                conn.sendall(output.encode("utf-8"))
+                    logging.info(f"Thermostat {therm_id}: received decrypted: {response}")
+                    print(f"Thermostat {therm_id} received decrypted: {response}")
+                    
+                    command, message = thermostat.parse_command(response)
+                    output = thermostat.process_command(command, message)
+                    
+                    # Encrypt the response
+                    encrypted_output = thermostat.encrypt(output)
+                    response_mac = thermostat.generate_mac(encrypted_output)
+                    final_response = f"{encrypted_output} | {response_mac}"
+                    
+                    logging.info(f"Thermostat {therm_id}: Sending encrypted response")
+                    print(f"Thermostat {therm_id} sending encrypted response")
+                    print() # Spacing for clean output
+                    conn.sendall(final_response.encode("utf-8"))
+                    
+                else:
+                    conn.sendall("ERROR: Invalid message format".encode("utf-8"))
                 conn.close()
                 
             except Exception as e:
                 error_msg = f"Error in Thermostat {therm_id}: {str(e)}"
                 print(error_msg)
+                logging.error(error_msg)
 
         print(f"Thermostat {therm_id} shutting down...")
 
     except Exception as e:
         print(f"Fatal error in Thermostat {therm_id}: {str(e)}")
+        logging.critical(f"Fatal error in Thermostat {therm_id}: {str(e)}")
 
 if __name__ == "__main__":
     import sys

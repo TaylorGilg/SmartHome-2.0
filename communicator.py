@@ -29,14 +29,14 @@ class Communicator:
 
     def encrypt(self, message):
         if self.enableEncryption: 
-            encrypted_message = self.cipher.encrypt(message)
+            encrypted_message = self.cipher.encrypt(str(message))
             return encrypted_message
         else:
             return message
 
     def decrypt(self, encrypted_message):
         if self.enableEncryption:
-            decrypted_message = self.cipher.decrypt(encrypted_message)
+            decrypted_message = self.cipher.decrypt(str(encrypted_message))
             return decrypted_message
         else:
             return encrypted_message
@@ -58,21 +58,20 @@ class Communicator:
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
 
-            #display the blockchain
-            #self.display_blockchain()
-
-            # Format message
-            if not isinstance(message, bytes):
-                message = "text:" + str(message)
+            # First encrypt message
+            encrypted_message = self.encrypt(message)
             
-            # Encrypt message
-            cipher_text = self.encrypt(message).encode("utf-8")
-
+            # Generate MAC for encrypted message
+            mac = self.generate_mac(encrypted_message)
+            
+            # Combine encrypted message and MAC
+            final_message = f"{encrypted_message} | {mac}"
+            
             # Open a TCP connection and send the message
             with socket.socket(AF_INET, SOCK_STREAM) as s:
                 s.connect(recipient)
-                s.sendall(cipher_text)
-                print(f"Sent message: {message} to {recipient}")
+                s.sendall(final_message.encode("utf-8"))
+                print(f"Sent encrypted message to {recipient}")
             
         except Exception as e:
             print(f"Error in send: {e}")
@@ -83,7 +82,21 @@ class Communicator:
         try:
             conn, addr = self.commSocket.accept()  # Accept an incoming connection
             data = conn.recv(self.buf).decode("utf-8")  # Receive data
-            plain_text = self.decrypt(data)
+
+            # Split message and MAC
+            if "|" in data:
+                encrypted_message, mac = data.rsplit("|", 1)
+                encrypted_message = encrypted_message.strip()
+                mac = mac.strip()
+
+                # Verify MAC
+                if not hmac.compare_digest(self.generate_mac(encrypted_message), mac):
+                    raise ValueError("Invalid MAC")
+
+                # Decrypt the message after MAC verification
+                plain_text = self.decrypt(encrypted_message)
+            else:
+                raise ValueError("Invalid message format")
 
             # Remove text: prefix if present
             if plain_text.startswith("text:"):
@@ -102,11 +115,8 @@ class Communicator:
             )
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
-
-            #display the blockchain
-            #self.display_blockchain()
             
-            print(f"Received message: {plain_text} from {addr}")
+            print(f"Received decrypted message: {plain_text} from {addr}")
             conn.close()
             return plain_text, addr
 

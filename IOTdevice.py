@@ -58,6 +58,16 @@ class IOTDevice(Communicator):
 
     def send(self, message, recipient):
         try:
+            # Format and encrypt message
+            if not isinstance(message, bytes):
+                message = "text:" + str(message)
+            cipher_text = self.encrypt(message)
+            
+            # Generate MAC for encrypted message
+            mac = self.generate_mac(cipher_text)
+            final_message = f"{cipher_text} | {mac}"
+
+            # Blockchain interaction
             self.blockchain.new_interaction(
                 sender=f"{self.device_type}:{self.id}",
                 recipient=str(recipient),
@@ -69,9 +79,10 @@ class IOTDevice(Communicator):
                     "status": "sent"
                 }
             )
+
             with socket.socket(AF_INET, SOCK_STREAM) as tcp_socket:
                 tcp_socket.connect(recipient)
-                tcp_socket.sendall(message.encode("utf-8"))
+                tcp_socket.sendall(final_message.encode("utf-8"))
                 print(f"{self.device_type} {self.id} sent: {message} to {recipient}")
         except Exception as e:
             self.logger.error(f"Error in send for {self.device_type} {self.id}: {e}")
@@ -81,24 +92,42 @@ class IOTDevice(Communicator):
         try:
             conn, addr = self.commSocket.accept()
             data = conn.recv(4096).decode("utf-8")
+            
             if not data:
                 raise ValueError("Received empty data.")
-            plain_text = self.decrypt(data)
-            if plain_text.startswith("text:"):
-                plain_text = plain_text[5:]
-            self.blockchain.new_interaction(
-                sender=str(addr),
-                recipient=f"{self.device_type}:{self.id}",
-                data={
-                    "type": "command",
-                    "message": plain_text,
-                    "location": self.location,
-                    "timestamp": time.time(),
-                    "status": "received"
-                }
-            )
-            print(f"{self.device_type} {self.id} received: {plain_text}")
-            return plain_text, addr
+                
+            # Split message and MAC
+            if "|" in data:
+                encrypted_msg, mac = data.rsplit("|", 1)
+                encrypted_msg = encrypted_msg.strip()
+                mac = mac.strip()
+                
+                # Verify MAC
+                if not self.verify_mac(encrypted_msg, mac):
+                    raise ValueError("Invalid MAC")
+                    
+                # Decrypt after verification
+                plain_text = self.decrypt(encrypted_msg)
+                
+                if plain_text.startswith("text:"):
+                    plain_text = plain_text[5:]
+                    
+                # Blockchain interaction
+                self.blockchain.new_interaction(
+                    sender=str(addr),
+                    recipient=f"{self.device_type}:{self.id}",
+                    data={
+                        "type": "command",
+                        "message": plain_text,
+                        "location": self.location,
+                        "timestamp": time.time(),
+                        "status": "received"
+                    }
+                )
+                print(f"{self.device_type} {self.id} received: {plain_text}")
+                return plain_text, addr
+            else:
+                raise ValueError("Message format invalid: Missing MAC")
         except Exception as e:
             self.logger.error(f"Error in receive for {self.device_type} {self.id}: {e}")
             raise
@@ -145,7 +174,6 @@ class IOTDevice(Communicator):
         self.location = new_location
         return f"{self.device_type} {self.id} location set to {new_location}"
 
-    #this method should also add messages to the blockchain display to indicate consensus protocol working
     def update_blockchain(self, chain_data): 
         try:
             new_chain = json.loads(chain_data)

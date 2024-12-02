@@ -210,25 +210,19 @@ class Hub(Communicator):
         consensus_thread.daemon = True
         consensus_thread.start()
 
-    # MAC Generation
-    def generate_mac(self, message):
-        """Generates an HMAC for the given message"""
-        h = hmac.new(self.mac_key, message.encode(), hashlib.sha256)
-        return h.hexdigest()
-
-    # MAC Verification
-    def verify_mac(self, message, mac):
-        """Verifies the HMAC for the given message"""
-        return hmac.compare_digest(self.generate_mac(message), mac)
-    
     def send(self, message, recipient):
         """Send message to a device via TCP"""
         try:
             device_id = self.get_device_id(recipient[0], recipient[1])
 
-             # Generate MAC and append the message
-            mac = self.generate_mac(message)
-            message_with_mac = f"{message} | {mac}"
+            # First encrypt the message
+            encrypted_message = self.encrypt(message)
+            
+            # Generate MAC for encrypted message
+            mac = self.generate_mac(encrypted_message)
+            
+            # Combine encrypted message and MAC
+            message_with_mac = f"{encrypted_message} | {mac}"
 
             # Log the outgoing message
             self.blockchain.new_interaction(
@@ -241,13 +235,13 @@ class Hub(Communicator):
                     "status": "sent"
                 }
             )
-            logging.info(f"Sending command '{message}' to device '{device_id}' at {recipient}")
+            logging.info(f"Sending encrypted command to device '{device_id}' at {recipient}")
 
             with socket.socket(AF_INET, SOCK_STREAM) as s:
                 s.connect(recipient)
                 s.sendall(message_with_mac.encode("utf-8"))
-                logging.info(f"Message sent to device '{device_id}': {message_with_mac}")
-                print(f"Sent message to {device_id}: {message}")
+                logging.info(f"Encrypted message sent to device '{device_id}'")
+                print(f"Sent encrypted message to {device_id}")
 
         except Exception as e:
             logging.error(f"Error sending message to device at {recipient}: {e}")
@@ -259,17 +253,21 @@ class Hub(Communicator):
         try:
             conn, addr = self.commSocket.accept()
             data = conn.recv(self._buf).decode("utf-8")
-            plain_text = self.decrypt(data)
 
-             # Split the message and MAC
+            # Split message and MAC
             if "|" in data:
-                message, mac = data.rsplit("|", 1)
+                encrypted_message, mac = data.rsplit("|", 1)
+                encrypted_message = encrypted_message.strip()
+                mac = mac.strip()
 
-                # Verify the MAC
-                if not self.verify_mac(message, mac):
-                    raise ValueError("Invalid MAC. Message integrity check failed.")
+                # Verify MAC
+                if not hmac.compare_digest(self.generate_mac(encrypted_message), mac):
+                    raise ValueError("Invalid MAC")
+
+                # Decrypt the message after MAC verification
+                plain_text = self.decrypt(encrypted_message)
             else:
-                raise ValueError("Message format invalid: Missing MAC.")
+                raise ValueError("Invalid message format")
 
             # Get device ID
             device_id = self.get_device_id(addr[0], addr[1])
@@ -289,13 +287,11 @@ class Hub(Communicator):
                     "status": "received"
                 }
             )
-            logging.info(f"Message received from device '{device_id}': {plain_text}")
-            print(f"Received from {device_id}: {plain_text}")
+            logging.info(f"Decrypted message received from device '{device_id}': {plain_text}")
+            print(f"Received decrypted message from {device_id}: {plain_text}")
             conn.close()
             return plain_text, addr
 
         except Exception as e:
             logging.error(f"Error receiving message: {e}")
             print(f"Error receiving message: {e}")
-
-    

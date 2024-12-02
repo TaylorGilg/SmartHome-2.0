@@ -8,70 +8,71 @@ class HubUI:
         self.hub = hub
         self.root = Tk()
         self.root.title("IoT Hub")
-        
+        self.root.geometry("600x500")  # Set a consistent window size
+
         self.setup_ui()
 
     def setup_ui(self):
-         # Device Registration Frame
+        # Device Registration Frame
         reg_frame = ttk.LabelFrame(self.root, text="Device Registration")
-        reg_frame.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
-        Label(reg_frame, text="Device ID:").grid(row=0, column=0, padx=5, pady=5)
-        Label(reg_frame, text="Device IP:").grid(row=1, column=0, padx=5, pady=5)
-        Label(reg_frame, text="Device Port:").grid(row=2, column=0, padx=5, pady=5)
-        Label(reg_frame, text="Location:").grid(row=3, column=0, padx=5, pady=5)
+        reg_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew", columnspan=2)
+        reg_frame.columnconfigure(1, weight=1)
 
+        Label(reg_frame, text="Device ID:").grid(row=0, column=0, sticky="w", padx=10, pady=5)
         self.device_id_entry = Entry(reg_frame)
-        self.device_ip_entry = Entry(reg_frame)
-        self.device_port_entry = Entry(reg_frame)
-        self.device_location_entry = Entry(reg_frame)
+        self.device_id_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
 
-        self.device_id_entry = Entry(reg_frame)
+        Label(reg_frame, text="Device IP:").grid(row=1, column=0, sticky="w", padx=10, pady=5)
         self.device_ip_entry = Entry(reg_frame)
-        self.device_port_entry = Entry(reg_frame)
-        self.device_location_entry = Entry(reg_frame)
+        self.device_ip_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
 
-        self.device_id_entry.grid(row=0, column=1, padx=5, pady=5)
-        self.device_ip_entry.grid(row=1, column=1, padx=5, pady=5)
-        self.device_port_entry.grid(row=2, column=1, padx=5, pady=5)
-        self.device_location_entry.grid(row=3, column=1, padx=5, pady=5)
+        Label(reg_frame, text="Device Port:").grid(row=2, column=0, sticky="w", padx=10, pady=5)
+        self.device_port_entry = Entry(reg_frame)
+        self.device_port_entry.grid(row=2, column=1, padx=10, pady=5, sticky="ew")
+
+        Label(reg_frame, text="Location:").grid(row=3, column=0, sticky="w", padx=10, pady=5)
+        self.device_location_entry = Entry(reg_frame)
+        self.device_location_entry.grid(row=3, column=1, padx=10, pady=5, sticky="ew")
+
+        # Buttons
+        button_frame = ttk.Frame(self.root)
+        button_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew", columnspan=2)
+        button_frame.columnconfigure((0, 1, 2, 3), weight=1)
+
+        self.start_consensus_button = Button(button_frame, text="Start Consensus", command=self.hub.start_consensus_protocol)
+        self.start_consensus_button.grid(row=0, column=0, padx=5, pady=5)
+
+        self.add_device_button = Button(button_frame, text="Add Device", command=self.add_device)
+        self.add_device_button.grid(row=0, column=1, padx=5, pady=5)
+
+        self.send_button = Button(button_frame, text="Send Message", command=self.open_send_message_popup)
+        self.send_button.grid(row=0, column=2, padx=5, pady=5)
+
+        self.view_blockchain_button = Button(button_frame, text="View Blockchain", command=self.view_blockchain)
+        self.view_blockchain_button.grid(row=0, column=3, padx=5, pady=5)
+
+        # Device List Display
+        list_frame = ttk.Frame(self.root)
+        list_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        list_frame.columnconfigure(0, weight=1)
+        list_frame.rowconfigure(0, weight=1)
+
+        self.device_list_text = Text(list_frame, height=10, wrap="word")
+        self.device_list_text.grid(row=0, column=0, sticky="nsew")
+        self.device_list_text.config(state="disabled")
+
+        scrollbar_device_list = Scrollbar(list_frame, command=self.device_list_text.yview)
+        scrollbar_device_list.grid(row=0, column=1, sticky="ns")
+        self.device_list_text['yscrollcommand'] = scrollbar_device_list.set
 
         # Device selection for blockchain data display
         self.device_var = StringVar()
-        self.blockchain_device_dropdown = ttk.Combobox(self.root, textvariable = self.device_var)
-        self.blockchain_device_dropdown.grid(row=4, column=0, columnspan=2, pady=5)
+        dropdown_frame = ttk.Frame(self.root)
+        dropdown_frame.grid(row=3, column=0, columnspan=2, pady=10, sticky="ew")
+        dropdown_frame.columnconfigure(0, weight=1)
 
-         # Buttons
-        button_frame = ttk.Frame(self.root)
-        button_frame.grid(row=1, column=0, columnspan=2, pady=10)
-
-        self.start_consensus_button = Button(button_frame, text="Start Consensus", command= self.hub.start_consensus_protocol)
-
-        self.add_device_button = Button(button_frame, text="Add Device", command=self.add_device)
-        self.send_button = Button(button_frame, text="Send Message", command=self.open_send_message_popup)
-        self.view_blockchain_button = Button(button_frame, text="View Blockchain", command=self.view_blockchain)
-        
-        self.start_consensus_button.pack(side='left', padx=5)
-        self.add_device_button.pack(side='left', padx=5)
-        self.send_button.pack(side='left', padx=5)
-        self.view_blockchain_button.pack(side='left', padx=5)
-
-         # Message Display
-        self.receive_text = Text(self.root, height=10, width=50)
-        self.device_list_text = Text(self.root, height=5, width=50)
-        self.receive_text.config(state="disabled")
-        self.device_list_text.config(state="disabled")
-
-        self.receive_text.grid(row=2, column=0, columnspan=2, pady=10)
-        self.device_list_text.grid(row=3, column=0, columnspan=2, pady=10)
-
-        scrollbar_receive = Scrollbar(self.root, command=self.receive_text.yview)
-        scrollbar_device_list = Scrollbar(self.root, command=self.device_list_text.yview)
-
-        scrollbar_receive.grid(row=2, column=2, sticky='nsew')
-        scrollbar_device_list.grid(row=3, column=2, sticky='nsew')
-
-        self.receive_text['yscrollcommand'] = scrollbar_receive.set
-        self.device_list_text['yscrollcommand'] = scrollbar_device_list.set
+        self.blockchain_device_dropdown = ttk.Combobox(dropdown_frame, textvariable=self.device_var)
+        self.blockchain_device_dropdown.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
 
         # Start message receiving thread
         receive_thread = Thread(target=self.receive_messages)
@@ -109,7 +110,7 @@ class HubUI:
         popup = Toplevel(self.root)
         popup.title("Send Message")
 
-        popup.geometry("500x300")
+        popup.geometry("600x400")
         # Get list of registered devices
         devices = list(self.hub._authenticated_devices.keys())
         
@@ -127,15 +128,16 @@ class HubUI:
         Label(popup, text="Parameter (optional):").grid(row=2, column=0, padx=5, pady=5)
         param_entry = Entry(popup)
         param_entry.grid(row=2, column=1, padx=5, pady=5)
-        # Help text
-        help_text = Text(popup, height=8, width=60)
-        help_text.grid(row=3, column=0, columnspan=5, padx=6, pady=8)
-        help_text.insert(END, "Common Commands:\n\n"
-                        "Cameras: get_status, set_status, get_location\n"
-                        "DoorLocks: get_state, set_state, get_status, set_status\n"
-                        "Thermostats: get_temperature, set_temperature, get_status\n\n"
-                        "Use semicolon (;) to separate command and parameter")
+
+        # Help text for common commands
+        help_text = Text(popup, height=8, wrap="word")
+        help_text.grid(row=3, column=0, columnspan=2, padx=10, pady=5)
+        help_text.insert(END, "Common Commands:\n"
+                              "Cameras: get_status, set_status, get_location\n"
+                              "DoorLocks: get_state, set_state, get_status, set_status\n"
+                              "Thermostats: get_temperature, set_temperature, get_status")
         help_text.config(state="disabled")
+
         # Send button
         send_button = Button(popup, text="Send", 
                            command=lambda: self.send_message_popup(
@@ -171,10 +173,7 @@ class HubUI:
 
     def display_received_message(self, message):
         try:
-            self.receive_text.config(state="normal")
-            self.receive_text.insert(END, f"{message}\n")
-            self.receive_text.see(END)
-            self.receive_text.config(state="disabled")
+            print(f"Received message: {message}")
         except Exception as e:
             print(f"Error displaying message: {e}")
 
@@ -189,7 +188,7 @@ class HubUI:
 
         self.device_list_text.config(state="disabled")
 
-        #update device dropdown for blockchain view
+        # Update device dropdown for blockchain view
         device_ids = list(self.hub._authenticated_devices.keys())
         self.blockchain_device_dropdown['values'] = device_ids
         if device_ids:
@@ -213,7 +212,6 @@ class HubUI:
         
         def update_blockchain_view(): 
             try: 
-                # Get the current selection each time we update
                 current_device = self.device_var.get()
                 blockchain_data = self.hub.get_blockchain_data(current_device)
                 blockchain_text.config(state="normal")
@@ -236,7 +234,7 @@ class HubUI:
                     blockchain_text.insert(END, f"Error retrieving blockchain data: {str(e)}\n")
                     blockchain_text.config(state="disabled")
             
-            if blockchain_window.winfo_exists():  # Only schedule next update if window still exists
+            if blockchain_window.winfo_exists():
                     blockchain_window.after(5000, update_blockchain_view)
 
         update_blockchain_view()    

@@ -14,14 +14,12 @@ class CameraIOT(IOTDevice):
     """Simulate camera IOT with support for multiple instances.
         Each camera can be identified by a unique ID (e.g., 'cam1', 'cam2', 'outdoor_cam', etc.)
     """
-#Initialize the camera with blockchain capabilities.
     def __init__(self, id, location="unknown"):
         super().__init__(id, "Camera", location)
         self.status = "live"
         self.location = location
         logging.info(f"Camera {id} initialized at location: {location}")
     
-# Process commands received via TCP and log them to blockchain. Each command creates a new block in our chain for integrity.
     def process_command(self, command, message=None):
         """Process received command"""
         try:
@@ -62,7 +60,6 @@ class CameraIOT(IOTDevice):
         except Exception as e:
             logging.error(f"Camera {self.id}: Error processing command '{command}': {e}")
             return f"ERROR: {str(e)}"
-
             
     def get_status(self):
         return f"Camera {self.id} status: {self.status}"
@@ -90,31 +87,26 @@ class CameraIOT(IOTDevice):
             logging.error(f"Camera {self.id}: Error setting location: {e}")
             raise e
 
-# Initialize camera device with dual TCP servers
-# 1. Main port - For encrypted device commands
-# 2. Port+1000 - For blockchain consensus protocol
 def start_camera(camera_id, location, ip, port):
     try:
         camera = CameraIOT(camera_id, location)
         camera.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
-        camera.init_sockets(ip, port)  # Initialize sockets first
+        camera.init_sockets(ip, port)
 
-        # Start blockchain consensus TCP server in separate thread which lets us handle blockchain syncing without blocking camera commands or corrupting the socket.
+        # Start blockchain consensus TCP server in separate thread
         tcp_thread = threading.Thread(target=camera.start_TCP)
-        tcp_thread.daemon = True  # Thread ends when the program exits
-        tcp_thread.start()  # Start thread
+        tcp_thread.daemon = True
+        tcp_thread.start()
         print(f"Camera {camera.id}: TCP server started for blockchain handling.")
-
         logging.info(f"Camera {camera_id}: Initialized at {location}, listening on {ip}:{port}")
         
-        # main processing loop for commands to continuosly accept TCP connections on the port and log blockchain processes.
         while True:
             try:
-                # Accept incoming TCP connections
-                conn, addr = camera.commSocket.accept()
-                response = conn.recv(4096).decode("utf-8")
-                logging.info(f"Camera {camera_id}: Received message: {response} from {addr}")
-                if response == "exit":
+                # Use parent's receive method for encryption
+                message, addr = camera.receive()
+                logging.info(f"Camera {camera_id}: Received message: {message} from {addr}")
+                
+                if message == "exit":
                     break
                 
                 # Separate the MAC from the command
@@ -126,21 +118,21 @@ def start_camera(camera_id, location, ip, port):
                 command, message = camera.parse_command(response)
                 output = camera.process_command(command, message)
 
+                # Use parent's send method for encryption
                 logging.info(f"Camera {camera_id}: Sending response: {output}")
-                print(f"Camera {camera_id} sending response: {output}")
-                print() # Spacing for clean output
-                conn.sendall(output.encode("utf-8"))
-                conn.close()
+                camera.send(output, addr)
+                
             except Exception as e:
                 error_msg = f"Error in Camera {camera_id}: {str(e)}"
                 logging.error(error_msg)
-                conn.sendall(error_msg.encode("utf-8"))
-                conn.close()
+                try:
+                    camera.send(error_msg, addr)
+                except:
+                    pass
 
         logging.info(f"Camera {camera_id}: Shutting down...")
     except Exception as e:
         logging.critical(f"Fatal error in Camera {camera_id}: {str(e)}")
-
 
 if __name__ == "__main__":
     import sys

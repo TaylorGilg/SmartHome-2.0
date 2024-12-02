@@ -6,7 +6,6 @@ import json
 import time
 from Blockchain import Blockchain
 
-
 class IOTDevice(Communicator):
     def __init__(self, id, device_type="unknown", location="unknown"):
         super().__init__(id)
@@ -25,6 +24,7 @@ class IOTDevice(Communicator):
         self.logger.addHandler(handler)
 
     def start_TCP(self):
+        """Starts a TCP server for blockchain consensus protocol"""
         try:
             TCP_socket = socket.socket(AF_INET, SOCK_STREAM)
             TCP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
@@ -49,16 +49,17 @@ class IOTDevice(Communicator):
                     else:
                         conn.sendall(b"Error: Unknown blockchain request")
                 except Exception as e:
-                    self.logger.error(f"Error handling TCP request from {addr}: {e}")
+                    print(f"Error handling TCP request from {addr}: {e}")
                 finally:
                     conn.close()
         except Exception as e:
-            self.logger.error(f"Error starting TCP server for {self.device_type} {self.id}: {e}")
+            print(f"Error starting TCP server for {self.device_type} {self.id}: {e}")
             raise
 
-# First log the outgoing message in the blockchain bvefore sending. Creates a new interaction with metadata like timestamps and location.
     def send(self, message, recipient):
+        """Send encrypted message and log to blockchain"""
         try:
+            # Log the outgoing message to blockchain
             self.blockchain.new_interaction(
                 sender=f"{self.device_type}:{self.id}",
                 recipient=str(recipient),
@@ -70,63 +71,61 @@ class IOTDevice(Communicator):
                     "status": "sent"
                 }
             )
-            with socket.socket(AF_INET, SOCK_STREAM) as tcp_socket:
-                tcp_socket.connect(recipient)
-                tcp_socket.sendall(message.encode("utf-8"))
-                print(f"{self.device_type} {self.id} sent: {message} to {recipient}")
+            
+            # Use parent's encrypted send
+            super().send(message, recipient)
+            print(f"{self.device_type} {self.id} sent: {message} to {recipient}")
+            
         except Exception as e:
-            self.logger.error(f"Error in send for {self.device_type} {self.id}: {e}")
+            print(f"Error in send for {self.device_type} {self.id}: {e}")
             raise
 
-# Receives a message from another device and logs it in the blockchain
     def receive(self):
+        """Receive encrypted message and log to blockchain"""
         try:
-            # Wait for the connection to be established before retriving 4096 bytes buffer.
-            conn, addr = self.commSocket.accept()
-            data = conn.recv(4096).decode("utf-8")
-            if not data:
+            # Use parent's encrypted receive
+            message, addr = super().receive()
+            
+            if not message:
                 raise ValueError("Received empty data.")
-            # Decrypt the message using included encryption ciphers.
-            plain_text = self.decrypt(data)
-            # Rudimentary text handling for when a device recieves the command and needs trimming.
-            if plain_text.startswith("text:"):
-                plain_text = plain_text[5:]
-                # Logging the recieved command into the blockchain.
+
+            # Log the received message to blockchain
             self.blockchain.new_interaction(
                 sender=str(addr),
                 recipient=f"{self.device_type}:{self.id}",
                 data={
                     "type": "command",
-                    "message": plain_text,
+                    "message": message,
                     "location": self.location,
                     "timestamp": time.time(),
                     "status": "received"
                 }
             )
-            print(f"{self.device_type} {self.id} received: {plain_text}")
-            return plain_text, addr
+            print(f"{self.device_type} {self.id} received: {message}")
+            return message, addr
         except Exception as e:
-            self.logger.error(f"Error in receive for {self.device_type} {self.id}: {e}")
+            print(f"Error in receive for {self.device_type} {self.id}: {e}")
             raise
 
-# Sets up tweo ports for the device to run, a regular port for device commands to be recieved and processed, and another port+1000 for blockchain consensus usage.
     def init_sockets(self, ip, port):
+        """Initialize main socket and TCP port for blockchain"""
         try:
             self.setIP(ip)
             self.setPort(port)
-            # To avoid conflicts we are setting up a TCP socket = 1000 for blockchain commands besides our regular control logic commands.
+            # Set up TCP port for blockchain consensus
             self.tcp_port = port + 1000
+            # Initialize main communication socket
             self.commSocket = socket.socket(AF_INET, SOCK_STREAM)
             self.commSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             self.commSocket.bind((self.ip, self.port))
             self.commSocket.listen(5)
             print(f"{self.device_type} {self.id} initialized TCP socket on {ip}:{self.tcp_port}")
         except Exception as e:
-            self.logger.error(f"Error initializing socket for {self.device_type} {self.id}: {e}")
+            print(f"Error initializing socket for {self.device_type} {self.id}: {e}")
             raise
 
-# Parses incoming commands in the format provided by the documentation
     def parse_command(self, command):
+        """Parse incoming commands"""
         try:
             # Split command and MAC
             if "|" in command:
@@ -134,20 +133,22 @@ class IOTDevice(Communicator):
 
             if isinstance(command, tuple):
                 command = command[0]
-                # Checking for error messages that are appended.
+
             if isinstance(command, str) and command.startswith("Error"):
                 return "error", command
-            # Remove the text prefix
+
             if command.startswith("text:"):
                 command = command[5:]
-                # Split our commands so we can properly decipher them.
+
             parts = command.split(';')
             new_command = parts[0].strip()
             message = parts[1].strip() if len(parts) > 1 else None
+            
             print(f"{self.device_type} {self.id} parsing command: {new_command} with message: {message}")
             return new_command, message
+            
         except Exception as e:
-            self.logger.error(f"Error parsing command for {self.device_type} {self.id}: {e}")
+            print(f"Error parsing command for {self.device_type} {self.id}: {e}")
             return "error", str(e)
 
     def get_location(self):
@@ -157,12 +158,10 @@ class IOTDevice(Communicator):
         self.location = new_location
         return f"{self.device_type} {self.id} location set to {new_location}"
 
-    # Updates the device's blockchain when hub sends a new version - serves as part of the consesus protocol where we can keep our devices in sync with one another.
     def update_blockchain(self, chain_data): 
+        """Update blockchain during consensus"""
         try:
-            # Data conversion from JSON to Python objects 
             new_chain = json.loads(chain_data)
-            # Ensure validity of the chain before we accepting it as a new addition 
             if self.blockchain.is_valid_chain(new_chain):
                 self.blockchain.chain = new_chain
                 with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:

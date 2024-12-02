@@ -165,10 +165,11 @@ def start_doorlock(lock_id, location, ip, port):
         print(f"DoorLock {lock_id} running at {location} ({ip}:{port})")
 
         while True:
-            conn, addr = lock.commSocket.accept()
-            with conn:
-                response = conn.recv(4096).decode("utf-8")
-                if response == "exit":
+            try:
+                # Use Communicator's receive method instead of direct socket
+                message, addr = lock.receive()
+                
+                if message == "exit":
                     break
 
                 # Separate the MAC from the command
@@ -181,11 +182,13 @@ def start_doorlock(lock_id, location, ip, port):
                 # Parse and process the command
                 command, message = lock.parse_command(response)
                 output = lock.process_command(command, message)
-
-                print(f"Doorlock {lock_id} sending response: {output}")
-                print() # Spacing for clean output
-                conn.sendall(output.encode("utf-8"))
-
+                # Use Communicator's send method instead of direct socket
+                lock.send(output, addr)
+            except Exception as e:
+                error_msg = f"Error in DoorLock {lock_id}: {str(e)}"
+                print(error_msg)
+                # Use Communicator's send for error messages too
+                lock.send(error_msg, addr)
     except Exception as e:
         logging.critical(f"Fatal error in DoorLock {lock_id}: {e}")
     finally:

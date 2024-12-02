@@ -225,9 +225,10 @@ def start_thermostat(therm_id, location, ip, port):
 
         while True:
             try:
-                conn, addr = thermostat.commSocket.accept()  # TCP accept
-                response = conn.recv(4096).decode("utf-8")
-                if response == "exit":
+                # Use parent's receive method for encryption
+                message, addr = thermostat.receive()
+                    
+                if message == "exit":
                     break
                 
                 # Separate the MAC from the command
@@ -242,15 +243,23 @@ def start_thermostat(therm_id, location, ip, port):
                 command, message = thermostat.parse_command(response)
                 output = thermostat.process_command(command, message)
                 
+                command, msg = thermostat.parse_command(message)
+                output = thermostat.process_command(command, msg)
+                
+                # Use parent's send method for encryption
                 logging.info(f"Thermostat {therm_id}: Sending response: {output}")
                 print(f"Thermostat {therm_id} sending response: {output}")
-                print() # Spacing for clean output
-                conn.sendall(output.encode("utf-8"))
-                conn.close()
+                thermostat.send(output, addr)
                 
             except Exception as e:
                 error_msg = f"Error in Thermostat {therm_id}: {str(e)}"
+                logging.error(error_msg)
                 print(error_msg)
+                try:
+                    # Send encrypted error message
+                    thermostat.send(error_msg, addr)
+                except:
+                    pass
 
         print(f"Thermostat {therm_id} shutting down...")
 

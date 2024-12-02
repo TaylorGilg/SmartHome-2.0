@@ -26,7 +26,7 @@ class IOTDevice(Communicator):
     def start_TCP(self):
         """Starts a TCP server for blockchain consensus protocol"""
         try:
-            TCP_socket = socket.socket(AF_INET, SOCK_STREAM)
+            TCP_socket = socket(AF_INET, SOCK_STREAM)
             TCP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             TCP_socket.bind(("0.0.0.0", self.tcp_port))
             TCP_socket.listen(5)
@@ -115,7 +115,7 @@ class IOTDevice(Communicator):
             # Set up TCP port for blockchain consensus
             self.tcp_port = port + 1000
             # Initialize main communication socket
-            self.commSocket = socket.socket(AF_INET, SOCK_STREAM)
+            self.commSocket = socket(AF_INET, SOCK_STREAM)
             self.commSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             self.commSocket.bind((self.ip, self.port))
             self.commSocket.listen(5)

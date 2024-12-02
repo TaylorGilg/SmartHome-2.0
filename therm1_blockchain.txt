@@ -1,0 +1,24 @@
+
+Block 1:
+Timestamp: Sun Dec  1 18:56:08 2024
+Previous Hash: 1
+Proof: 100
+Interactions:
+
+Block 2:
+Timestamp: Sun Dec  1 18:57:56 2024
+Previous Hash: ab7d2b7b58395da110c40d233cb2bf5c42bd78b0972e7fbdede4252ca0d7d356
+Proof: 35293
+Interactions:
+From: None
+To: Thermostat:therm1
+Data: {'type': 'command', 'message': "Error: name 'decrypted_message' is not defined", 'location': 'Living Room', 'timestamp': 1733101076.7150414, 'status': 'received'}
+--------------------------------------------------
+From: Thermostat:therm1
+To: None
+Data: {'type': 'response', 'message': "Error in Thermostat therm1: cannot access local variable 'response' where it is not associated with a value", 'location': 'Living Room', 'timestamp': 1733101076.733121, 'status': 'sent'}
+--------------------------------------------------
+From: therm1
+To: None
+Data: {'type': 'outgoing_message', 'message': "Error in Thermostat therm1: cannot access local variable 'response' where it is not associated with a value", 'timestamp': 1733101076.733121, 'status': 'sent'}
+--------------------------------------------------

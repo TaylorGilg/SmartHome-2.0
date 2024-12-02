@@ -89,7 +89,7 @@ class Communicator:
             cipher_text = self.encrypt(message_with_mac).encode("utf-8")
 
             # Open a TCP connection and send the message
-            with socket.socket(AF_INET, SOCK_STREAM) as s:
+            with socket(AF_INET, SOCK_STREAM) as s:
                 s.connect(recipient)
                 s.sendall(cipher_text)
                 print(f"Sent message: {message} to {recipient}")
@@ -108,8 +108,8 @@ class Communicator:
             plain_text = self.decrypt(decoded_data)  # Decrypt the message
 
             # Split message and MAC
-            if "|" in decrypted_message:
-                plain_text, mac = decrypted_message.rsplit("|", 1)
+            if "|" in plain_text:
+                plain_text, mac = plain_text.rsplit("|", 1)
 
                 # Verifty the MAC
                 if not self.verify_mac(plain_text, mac):
@@ -181,7 +181,7 @@ class Communicator:
             self.setPort(port)
 
             # Create and bind the TCP socket
-            self.commSocket = socket.socket(AF_INET, SOCK_STREAM)
+            self.commSocket = socket(AF_INET, SOCK_STREAM)
             self.commSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             self.commSocket.bind((self.ip, self.port))
             self.commSocket.listen(5)  # Listen for incoming connections
@@ -224,7 +224,7 @@ class Communicator:
     def request_blockchain_from_device(self, device_ip, device_port):
         #request blockchain data from specific device
         try:
-            with socket.socket(AF_INET, SOCK_STREAM) as s:
+            with socket(AF_INET, SOCK_STREAM) as s:
                 s.connect((device_ip, device_port))
                 s.sendall(b"GET_BLOCKCHAIN_DATA")
                 response = s.recv(4096)

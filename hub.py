@@ -63,7 +63,7 @@ class Hub(Communicator):
             device_ip, device_port = self._authenticated_devices[device_id]
             device_tcp_port = int(device_port) + 1000 #TCP port 1000 more
 
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            with socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(5) #timeout after 5 seconds
                 s.connect((device_ip, device_tcp_port))
                 s.sendall(b"GET_BLOCKCHAIN_DATA")
@@ -101,7 +101,7 @@ class Hub(Communicator):
     def init_sockets(self):
         """Initialize TCP socket"""
         try:
-            self.commSocket = socket.socket(AF_INET, SOCK_STREAM)
+            self.commSocket = socket(AF_INET, SOCK_STREAM)
             self.commSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)  # Allow address reuse
             self.commSocket.bind((self._ip, self._port))
             self.commSocket.listen(5)
@@ -116,7 +116,7 @@ class Hub(Communicator):
         for device_id, (device_ip, device_port) in self._authenticated_devices.items():
             try:
                 device_tcp_port = int(device_port) + 1000
-                with socket.socket(AF_INET, SOCK_STREAM) as s:
+                with socket(AF_INET, SOCK_STREAM) as s:
                     s.connect((device_ip, device_tcp_port))
                     s.sendall(b"GET_BLOCKCHAIN_DATA")
                     response = s.recv(4096)
@@ -148,7 +148,7 @@ class Hub(Communicator):
         for device_id, (device_ip, device_port) in self._authenticated_devices.items():
             try:
                 device_tcp_port = int(device_port) + 1000
-                with socket.socket(AF_INET, SOCK_STREAM) as s:
+                with socket(AF_INET, SOCK_STREAM) as s:
                     s.connect((device_ip, device_tcp_port))
                     message = f"UPDATE_BLOCKCHAIN;{json.dumps(resolved_chain)}"
                     s.sendall(message.encode("utf-8"))
@@ -204,7 +204,7 @@ class Hub(Communicator):
             )
             logging.info(f"Sending command '{message}' to device '{device_id}' at {recipient}")
             # Actually sends the message with the TCP socket and ensures it gracefully closes in the presence of errors.
-            with socket.socket(AF_INET, SOCK_STREAM) as s:
+            with socket(AF_INET, SOCK_STREAM) as s:
                 s.connect(recipient)
                 s.sendall(message_with_mac.encode("utf-8"))
                 logging.info(f"Message sent to device '{device_id}': {message_with_mac}")
@@ -231,11 +231,11 @@ def start_hub(name):
                 message, addr = hub.receive()
                 device_id = hub.get_device_id(addr[0], addr[1])
                 # Split the message and MAC
-                if "|" in data:
-                    message, mac = data.rsplit("|", 1)
+                if "|" in message:
+                    message, mac = message.rsplit("|", 1)
 
                     # Verify the MAC
-                    if not self.verify_mac(message, mac):
+                    if not message.verify_mac(message, mac):
                         raise ValueError("Invalid MAC. Message integrity check failed.")
                     else:
                         raise ValueError("Message format invalid: Missing MAC.")

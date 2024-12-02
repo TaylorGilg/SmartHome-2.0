@@ -120,7 +120,7 @@ class ESPCamera(IOTDevice):
         """
         self.setIP(ip)
         self.setPort(port)
-        TCP_socket = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
+        TCP_socket = usocket(usocket.AF_INET, usocket.SOCK_STREAM)
         TCP_socket.bind((self.ip, self.port))
         TCP_socket.listen(1)
         self.setSocket(TCP_socket)        

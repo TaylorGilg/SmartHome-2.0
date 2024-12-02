@@ -196,7 +196,6 @@ class HubUI:
             self.blockchain_device_dropdown.set(device_ids[0])
 
     def view_blockchain(self):
-
         selected_device = self.device_var.get()
         if not selected_device:
             messagebox.showerror("Error", "Please select a device.")
@@ -214,7 +213,9 @@ class HubUI:
         
         def update_blockchain_view(): 
             try: 
-                blockchain_data = self.hub.get_blockchain_data(selected_device)
+                # Get the current selection each time we update
+                current_device = self.device_var.get()
+                blockchain_data = self.hub.get_blockchain_data(current_device)
                 blockchain_text.config(state="normal")
                 blockchain_text.delete(1.0, END)
 
@@ -226,21 +227,23 @@ class HubUI:
                         blockchain_text.insert(END, f"Timestamp: {block['timestamp']}\n")
                         blockchain_text.insert(END, f"Previous Hash: {block['previous_hash']}\n")
                         blockchain_text.insert(END, "\nInteractions:\n")
-                        
-                        for interaction in block['interactions']:
-                            blockchain_text.insert(END, f"\nFrom: {interaction['sender']}\n")
-                            blockchain_text.insert(END, f"To: {interaction['recipient']}\n")
-                            blockchain_text.insert(END, f"Data: {interaction['data']}\n")
-                            blockchain_text.insert(END, "-" * 50 + "\n")
+                    
+                    for interaction in block['interactions']:
+                        blockchain_text.insert(END, f"\nFrom: {interaction['sender']}\n")
+                        blockchain_text.insert(END, f"To: {interaction['recipient']}\n")
+                        blockchain_text.insert(END, f"Data: {interaction['data']}\n")
+                        blockchain_text.insert(END, "-" * 50 + "\n")
 
-                
-            except Exception as e:
-                blockchain_text.config(state="normal")
-                blockchain_text.delete(1.0, END)
-                blockchain_text.insert(END, f"Error: Error retrieving blockchain data: {str(e)}\n")
                 blockchain_text.config(state="disabled")
                 
-            blockchain_window.after(5000, update_blockchain_view) #refresh window every 5 seconds
+            except Exception as e:
+                    blockchain_text.config(state="normal")
+                    blockchain_text.delete(1.0, END)
+                    blockchain_text.insert(END, f"Error retrieving blockchain data: {str(e)}\n")
+                    blockchain_text.config(state="disabled")
+            
+            if blockchain_window.winfo_exists():  # Only schedule next update if window still exists
+                    blockchain_window.after(5000, update_blockchain_view)
 
         update_blockchain_view()    
 

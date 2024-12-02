@@ -161,6 +161,10 @@ class thermostatIOT(IOTDevice):
             
     def process_command(self, command, message=None):
         try:
+            # Split command and MAC
+            if "|" in command:
+                command, _ = command.rsplit("|", 1) # Discard the MAC
+
             if command == "error":
                 return f"ERROR: {message}"
             mapper = {
@@ -218,6 +222,12 @@ def start_thermostat(therm_id, location, ip, port):
                 response = conn.recv(4096).decode("utf-8")
                 if response == "exit":
                     break
+
+                 # Separate the MAC from the command
+                if "|" in response:
+                    response, _ = response.rsplit("|", 1) # Discard the MAC
+                    print(f"Thermostat {therm_id} parsed command: {response.strip()}")
+
                     
                 logging.info(f"Thermostat {therm_id}: received: {response}")
                 print(f"Thermostat {therm_id} received: {response}")
@@ -226,6 +236,7 @@ def start_thermostat(therm_id, location, ip, port):
                 
                 logging.info(f"Thermostat {therm_id}: Sending response: {output}")
                 print(f"Thermostat {therm_id} sending response: {output}")
+                print() # Spacing for clean output
                 conn.sendall(output.encode("utf-8"))
                 conn.close()
                 

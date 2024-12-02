@@ -43,10 +43,14 @@ class HubUI:
          # Buttons
         button_frame = ttk.Frame(self.root)
         button_frame.grid(row=1, column=0, columnspan=2, pady=10)
+
+        self.start_consensus_button = Button(button_frame, text="Start Consensus", command= self.hub.start_consensus_protocol)
+
         self.add_device_button = Button(button_frame, text="Add Device", command=self.add_device)
         self.send_button = Button(button_frame, text="Send Message", command=self.open_send_message_popup)
         self.view_blockchain_button = Button(button_frame, text="View Blockchain", command=self.view_blockchain)
         
+        self.start_consensus_button.pack(side='left', padx=5)
         self.add_device_button.pack(side='left', padx=5)
         self.send_button.pack(side='left', padx=5)
         self.view_blockchain_button.pack(side='left', padx=5)
@@ -104,9 +108,8 @@ class HubUI:
     def open_send_message_popup(self):
         popup = Toplevel(self.root)
         popup.title("Send Message")
-        popup.geometry("400x300")
 
-        popup.geometry("400x300")
+        popup.geometry("500x300")
         # Get list of registered devices
         devices = list(self.hub._authenticated_devices.keys())
         
@@ -116,7 +119,7 @@ class HubUI:
         device_var.grid(row=0, column=1, padx=5, pady=5)
         
         # Command selection
-        Label(popup, text="Command:").grid(row=1, column=0, padx=5, pady=5)
+        Label(popup, text="Command:").grid(row=1, column=0, padx=5, pady=10)
         command_entry = Entry(popup)
         command_entry.grid(row=1, column=1, padx=5, pady=5)
         
@@ -125,8 +128,8 @@ class HubUI:
         param_entry = Entry(popup)
         param_entry.grid(row=2, column=1, padx=5, pady=5)
         # Help text
-        help_text = Text(popup, height=8, width=40)
-        help_text.grid(row=3, column=0, columnspan=2, padx=5, pady=5)
+        help_text = Text(popup, height=8, width=60)
+        help_text.grid(row=3, column=0, columnspan=5, padx=6, pady=8)
         help_text.insert(END, "Common Commands:\n\n"
                         "Cameras: get_status, set_status, get_location\n"
                         "DoorLocks: get_state, set_state, get_status, set_status\n"

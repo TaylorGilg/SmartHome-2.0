@@ -4,6 +4,8 @@ from Blockchain import Blockchain
 import time
 from socket import *
 import json
+import hmac
+import hashlib
 
 class Communicator:
     
@@ -16,7 +18,14 @@ class Communicator:
         self.enableEncryption = False
         self.buf = 1024
         self.blockchain = Blockchain()
+        self.mac_key = b"super_secret_key"  # Shared key for HMAC
         print(f"Communicator initialized with ID: {id}")
+
+        # MAC Generation
+    def generate_mac(self, message):
+        """Generates an HMAC for the given message"""
+        h = hmac.new(self.mac_key, message.encode(), hashlib.sha256)
+        return h.hexdigest()
 
     def encrypt(self, message):
         if self.enableEncryption: 

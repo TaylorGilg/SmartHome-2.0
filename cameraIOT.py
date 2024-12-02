@@ -23,6 +23,10 @@ class CameraIOT(IOTDevice):
     def process_command(self, command, message=None):
         """Process received command"""
         try:
+            # Split command and MAC
+            if "|" in command:
+                command, _ = command.rsplit("|", 1) # Discard the MAC
+
             logging.info(f"Camera {self.id}: Processing command '{command}' with message: '{message}'")
             mapper = {
                 'get_status': self.get_status,
@@ -43,14 +47,9 @@ class CameraIOT(IOTDevice):
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
 
-            #display the blockchain
-            #self.display_blockchain()
-
             logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
             return str(result)
-
-            #logging.info(f"Camera {self.id}: Command '{command}' executed successfully with result: '{result}'")
-            #return result
+ 
         except Exception as e:
             logging.error(f"Camera {self.id}: Error processing command '{command}': {e}")
             return f"ERROR: {str(e)}"
@@ -105,10 +104,17 @@ def start_camera(camera_id, location, ip, port):
                 if response == "exit":
                     break
 
+                # Separate the MAC from the command
+                if "|" in response:
+                    response, _ = response.rsplit("|", 1) # Discard the MAC
+                    print(f"Thermostat {camera_id} parsed command: {response.strip()}")
+
                 command, message = camera.parse_command(response)
                 output = camera.process_command(command, message)
 
                 logging.info(f"Camera {camera_id}: Sending response: {output}")
+                print(f"Camera {camera_id} sending response: {output}")
+                print() # Spacing for clean output
                 conn.sendall(output.encode("utf-8"))
                 conn.close()
             except Exception as e:

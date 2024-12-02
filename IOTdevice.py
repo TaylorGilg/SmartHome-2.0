@@ -23,20 +23,6 @@ class IOTDevice(Communicator):
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
-
-    #ideally this would be refactored to be able to have the UI display the live changes to the blockchains
-    '''
-    def display_blockchain(self): #print blockchain into a txt file
-        with open(f"{self.device_type}_{self.id}_blockchain.txt", "w") as file:
-            file.write(f"Blockchain for {self.device_type} ({self.id}):\n")
-        for block in self.blockchain.chain:
-            file.write(f"Block {block['index']}:\n")
-            file.write(f"Timestamp: {block['timestamp']} \n")
-            file.write(f"Previous Hash: {block['previous_hash']} \n")
-            file.write(f"Proof: {block['proof']} \n")
-            file.write(f"Interactions: {block['interactions']} \n")
-        file.write("End of blockchain.\n")
-    '''
     
     def start_TCP(self):
         try:
@@ -133,6 +119,10 @@ class IOTDevice(Communicator):
 
     def parse_command(self, command):
         try:
+            # Split command and MAC
+            if "|" in command:
+                command, _ = command.rsplit("|", 1) # Discard the MAC
+
             if isinstance(command, tuple):
                 command = command[0]
             if isinstance(command, str) and command.startswith("Error"):
@@ -161,15 +151,8 @@ class IOTDevice(Communicator):
             new_chain = json.loads(chain_data)
             if self.blockchain.is_valid_chain(new_chain):
                 self.blockchain.chain = new_chain
-                #with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:
-                    #file.write(f"Consensus Protocol Result:\n")
-                #self.display_blockchain()
                 return "ACK: Blockchain update successful"
             else:
-                #with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:
-                    #file.write(f"{self.device_type} {self.id}: Received invalid blockchain.")
                 return "Error: Received invalid blockchain"
         except Exception as e:
-            #with open(f"{self.device_type}_{self.id}_blockchain.txt", "a") as file:
-                #file.write(f"{self.device_type} {self.id}: Error updating blockchain: {e}")
             return f"Error updating blockchain: {str(e)}"

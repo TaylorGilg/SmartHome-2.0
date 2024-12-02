@@ -188,16 +188,16 @@ class HubUI:
 
         self.device_list_text.config(state="disabled")
 
-        # Update device dropdown for blockchain view with registered devices
+        # Update device dropdown for blockchain view
         device_ids = list(self.hub._authenticated_devices.keys())
         self.blockchain_device_dropdown['values'] = device_ids
         if device_ids:
             self.blockchain_device_dropdown.set(device_ids[0])
 
-    # Shows updating blockchain of selected registered device
+    # shows the information for the blckchain
     def view_blockchain(self):
         selected_device = self.device_var.get()
-        if not selected_device: # Must select device via dropdown
+        if not selected_device:
             messagebox.showerror("Error", "Please select a device.")
             return
 
@@ -211,17 +211,17 @@ class HubUI:
         blockchain_text.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        # Shows the current blockchain for device selected
+        # shows the current blockchain for each device selected
         def update_blockchain_view(): 
             try: 
                 current_device = self.device_var.get()
-                blockchain_data = self.hub.get_blockchain_data(current_device) # Fetches  device blockchain data
+                blockchain_data = self.hub.get_blockchain_data(current_device)
                 blockchain_text.config(state="normal")
                 blockchain_text.delete(1.0, END)
 
                 if not blockchain_data:
                     blockchain_text.insert(END, "No blockchain data found")
-                else: # Iterates through blockchain and displays each block and details
+                else:
                     for block in blockchain_data:
                         blockchain_text.insert(END, f"\nBlock {block['index']}:\n")
                         blockchain_text.insert(END, f"Timestamp: {block['timestamp']}\n")
@@ -237,8 +237,8 @@ class HubUI:
                     blockchain_text.config(state="disabled")
             
             if blockchain_window.winfo_exists():
-                    blockchain_window.after(5000, update_blockchain_view) 
-                    # Refreshes window every 5 seconds
+                    blockchain_window.after(5000, update_blockchain_view)
+
         update_blockchain_view()    
 
     def on_close(self):

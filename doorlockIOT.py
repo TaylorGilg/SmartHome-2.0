@@ -143,8 +143,14 @@ class DoorLock(IOTDevice):
             proof = self.blockchain.proof_of_work(self.blockchain.last_block['proof'])
             self.blockchain.new_block(proof)
 
+            #display the blockchain
+            #self.display_blockchain()
+
             logging.info(f"Command '{command}' executed successfully on Thermostat {self.id} with result: {result}")
             return str(result)
+        
+            #logging.info(f"Command '{command}' executed successfully on DoorLock {self.id}")
+            #return result
             
         except Exception as e:
             #error
@@ -159,7 +165,6 @@ def start_doorlock(lock_id, location, ip, port):
         lock.setEncryption(KEY, upperCaseAll=False, removeSpace=False)
         lock.init_sockets(ip, port)
 
-        # Start up a thread for listening for TCP connections
         tcp_thread = threading.Thread(target=lock.start_TCP)
         tcp_thread.daemon = True
         tcp_thread.start()

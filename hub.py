@@ -12,7 +12,7 @@ import socket
 import hmac
 import hashlib
 
-# Configure logging
+#sets up logging for the hub, written to hub.log
 logging.basicConfig(
     filename='hub.log',
     level=logging.INFO,
@@ -58,6 +58,7 @@ class Hub(Communicator):
                     "status": "registered"
                 }
             )
+            #logs device registration with details such as IP, port and location
             logging.info(f"Device '{device_id}' registered at location: {location} (IP: {device_ip}, Port: {device_port})")
             print(f"Device {device_id} registered at {location}")
         except Exception as e:

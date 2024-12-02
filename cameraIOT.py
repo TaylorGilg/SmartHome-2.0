@@ -21,6 +21,8 @@ class CameraIOT(IOTDevice):
         self.location = location
         logging.info(f"Camera {id} initialized at location: {location}")
     
+
+    #Logs commands recieved by the camera device
     def process_command(self, command, message=None):
         """Process received command"""
         try:

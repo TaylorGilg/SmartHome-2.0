@@ -5,6 +5,7 @@ import time
 import threading
 from socket import *
 
+#Sets up the logging for the Door Lock and the format has the time stamp for better tracebility.
 logging.basicConfig(
     filename='doorlock.log',
     level=logging.INFO,
@@ -20,6 +21,9 @@ class DoorLock(IOTDevice):
         self._lock_time = "00:00"
         self.location = location
         logging.info(f"DoorLock {id} initialized at location: {location}")
+    
+    #Logs state changes (on/off) for the DoorLock
+    #Successful state changes are logged as INFO, invalid as ERROR
 
     def set_state(self, state):
         try:
@@ -101,6 +105,8 @@ class DoorLock(IOTDevice):
         self.location = new_location
         logging.info(f"DoorLock {self.id}: Location updated to {new_location}")
         return f"DoorLock {self.id} location set to {new_location}"
+    
+    #Logs all received commands and their results.
 
     def process_command(self, command, message=None):
         try:
@@ -123,10 +129,13 @@ class DoorLock(IOTDevice):
             }
 
             if command not in mapper:
+                #warning
                 logging.warning(f"Unknown command '{command}' received by DoorLock {self.id}")
                 return f"ERROR: Unknown command '{command}'"
 
             result = mapper[command](message) if message else mapper[command]()
+            #info
+            logging.info(f"Command '{command}' executed successfully on DoorLock {self.id} with result: {result}")
 
             #log action and create a new block
             self.blockchain.new_interaction(sender = self.id, recipient = "Hub", 
@@ -144,6 +153,9 @@ class DoorLock(IOTDevice):
             #return result
             
         except Exception as e:
+            #error
+            logging.error(f"Error executing command '{command}' on DoorLock {self.id}: {e}")
+            return f"ERROR from {self.id}: {str(e)}"
             logging.error(f"Error executing command '{command}': {e}")
             return f"ERROR from {self.id}: {e}"
 

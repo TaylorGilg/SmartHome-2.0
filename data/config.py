@@ -1,8 +1,8 @@
 # IP ADDRESSES
-HUB_IP = "192.168.6.125"  # Use your actual IP
-CAMERA_IP = "192.168.6.125"
-DOORLOCK_IP = "192.168.6.125"
-THERMOSTAT_IP = "192.168.6.125"
+HUB_IP = "192.168.56.1"  # Using each group members individual ip addresses
+CAMERA_IP = "192.168.56.1"
+DOORLOCK_IP = "192.168.56.1"
+THERMOSTAT_IP = "192.168.56.1"
 
 # PORTS
 HUB_PORT = 8080

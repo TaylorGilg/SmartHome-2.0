@@ -194,6 +194,7 @@ class HubUI:
         if device_ids:
             self.blockchain_device_dropdown.set(device_ids[0])
 
+    # shows the information for the blckchain
     def view_blockchain(self):
         selected_device = self.device_var.get()
         if not selected_device:
@@ -210,6 +211,7 @@ class HubUI:
         blockchain_text.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
+        # shows the current blockchain for each device selected
         def update_blockchain_view(): 
             try: 
                 current_device = self.device_var.get()

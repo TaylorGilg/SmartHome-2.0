@@ -35,16 +35,17 @@ class HubUI:
         self.device_port_entry.grid(row=2, column=1, padx=5, pady=5)
         self.device_location_entry.grid(row=3, column=1, padx=5, pady=5)
 
-        # Buttons
+        # Button setup
         button_frame = ttk.Frame(self.root)
         button_frame.grid(row=1, column=0, columnspan=2, pady=10)
 
+        # Buttons for blockchain and iot device set up
         self.start_consensus_button = Button(button_frame, text="Start Consensus", command= self.hub.start_consensus_protocol)
-
         self.add_device_button = Button(button_frame, text="Add Device", command=self.add_device)
         self.send_button = Button(button_frame, text="Send Message", command=self.open_send_message_popup)
         self.view_blockchain_button = Button(button_frame, text="View Blockchain", command=self.view_blockchain)
         
+        # padding and other setup for buttons
         self.start_consensus_button.pack(side='left', padx=5)
         self.add_device_button.pack(side='left', padx=5)
         self.send_button.pack(side='left', padx=5)
@@ -61,8 +62,8 @@ class HubUI:
         self.blockchain_device_dropdown = ttk.Combobox(self.root, textvariable = self.device_var)
         self.blockchain_device_dropdown.grid(row=2, column=0, columnspan=2, pady=10)
 
+        # display config and iot data when add device is pressed
         self.device_list_text.grid(row=3, column=0, columnspan=2, pady=10)
-
         scrollbar_receive = Scrollbar(self.root, command=self.receive_text.yview)
         scrollbar_device_list = Scrollbar(self.root, command=self.device_list_text.yview)
 
@@ -194,6 +195,7 @@ class HubUI:
         if device_ids:
             self.blockchain_device_dropdown.set(device_ids[0])
 
+    # shows the information for the blckchain
     def view_blockchain(self):
         selected_device = self.device_var.get()
         if not selected_device:
@@ -210,6 +212,7 @@ class HubUI:
         blockchain_text.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
+        # shows the current blockchain for each device selected
         def update_blockchain_view(): 
             try: 
                 # Get the current selection each time we update

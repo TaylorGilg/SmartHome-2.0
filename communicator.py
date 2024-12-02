@@ -170,16 +170,18 @@ class Communicator:
     def get_blockchain_data(self, device_id=None):
         """Returns formatted blockchain data for UI display or analysis"""
         try:
-            #if device_id is provided, get blockchain for specific device
-            if device_id:
+            # If device_id is provided, get blockchain for specific device
+            if device_id: # Check if device is in authenticated device list
                 if device_id not in self._authenticated_devices:
                     raise ValueError(f"Device {device_id} not found")
             
+                # Get ip and port of device and request blockchain data
                 device_ip, device_port = self._authenticated_devices[device_id]
                 blockchain_data = self.request_blockchain_from_device(device_ip, device_port)
             else:
-                blockchain = self.blockchain.chain
+                blockchain = self.blockchain.chain # Return local chain otherwise
 
+            # Iterate over every block and append to list to be returned
             blockchain_data = []
             for block in self.blockchain.chain:
                 block_data = {
@@ -197,7 +199,7 @@ class Communicator:
             return []
     
     def request_blockchain_from_device(self, device_ip, device_port):
-        #request blockchain data from specific device
+        # Request blockchain data from specific device via TCP connection
         try:
             with socket.socket(AF_INET, SOCK_STREAM) as s:
                 s.connect((device_ip, device_port))

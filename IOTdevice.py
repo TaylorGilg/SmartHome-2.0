@@ -16,7 +16,7 @@ class IOTDevice(Communicator):
         self.blockchain = Blockchain()
         print(f"Initializing {self.device_type} device {self.id} at location: {self.location}")
 
-        #initializing logger for respective devices
+        # Initializing logger file for respective devices
         self.logger = logging.getLogger(f"{self.device_type}_{self.id}")
         self.logger.setLevel(logging.DEBUG)
         handler = logging.StreamHandler()
@@ -25,7 +25,7 @@ class IOTDevice(Communicator):
         self.logger.addHandler(handler)
     
     def start_TCP(self):
-        try:
+        try: # Establishing ability for device to start up TCP listening and handle certain TCP requests
             TCP_socket = socket.socket(AF_INET, SOCK_STREAM)
             TCP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             TCP_socket.bind(("0.0.0.0", self.tcp_port))
@@ -174,6 +174,7 @@ class IOTDevice(Communicator):
         self.location = new_location
         return f"{self.device_type} {self.id} location set to {new_location}"
 
+    # For devices to be able to take in resolved chain (consensus protocol) and update accordingly
     def update_blockchain(self, chain_data): 
         try:
             new_chain = json.loads(chain_data)

@@ -52,6 +52,13 @@ Each device has their own blockchain (similar to a linked list where each block 
 
 - Messages between the hub and device should be visible over the network with Wireshark (tcp.port == <device port>). 
 - Due to refactoring to TCP, the hub will no longer have the port number 8080.
+- When cloning the repo
+
+### Running Notes
+- When cloning from bit bucket you navigate to the project directory and press the clone button.
+giving you the https and ssh cloning options.
+- Then you can use git kracken or other service to clone a local copy and begin running the project with the above steps.
+- May also need WireShark to be downloaded to see all parts of this project running as intended.
 
 ## Files
 
@@ -77,13 +84,15 @@ Each device has their own blockchain (similar to a linked list where each block 
 - Blockchain.py: imported by communicator, defines blockchain structures to be used by each device.
 - Interaction.py: defines interactions by properties sender, recipient, and data for block structure.
 
+## File Notes
+
+- Some merge conflicts forced us to retool some of the work we had done leading up to the project, but we have a demo avaliable with most work.
+
 ## The research that inspired our project
 
 Z. Berkay Celik, Leonardo Babun, Amit K. Sikder, Hidayet Aksu, Gang Tan, Patrick McDaniel, and A. Selcuk Uluagac. 2018. Sensitive information tracking in commodity IoT. In Proceedings of the 27th USENIX Conference on Security Symposium (SEC'18). USENIX Association, USA, 1687–1704.
 
-## Research Archeology
-
-## Reference for Paper 
+## Research Archeology / Reference for Paper 
 
 ARZT, S., RASTHOFER, S., FRITZ, C., BODDEN, E., BARTEL, A., KLEIN, J., LE TRAON, Y., OCTEAU, D., AND MCDANIEL, P. FlowDroid: Precise Context, Flow, Field, Object-sensitive and Lifecycle-aware Taint Analysis for Android Apps. ACM SIGPLAN Notices (2014).
 
@@ -93,12 +102,17 @@ Han Yang, Carson Kuzniar, Chengyan Jiang, Ioanis Nikolaidis, and Israat Haque. 2
 
 ## Troubleshooting
 
-I am getting a UDP error!
+- I am getting a UDP error!
 UDP_socket.bind((self.ip, self.port))
 OSError: [WinError 10049] The requested address is not valid in its context
 Solution: Make sure the device's IP address in config.py matches the computer's actual address. (Double check your computer's IPv4 address using ipconfig)
-My messages are not sending!
+
+- My messages are not sending!
 Solution: Make sure the network you are connected to does not block the UDP ports you specified in config.py.
+
+- hubUI is not running and throwing errors!
+Solution: Make sure that the config.py has your ip in it.
+Notes: This is found in the cmd by typing ipconfig
 
 ## Code Base Creators
 

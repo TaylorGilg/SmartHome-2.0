@@ -26,6 +26,12 @@ class Communicator:
         """Generates an HMAC for the given message"""
         h = hmac.new(self.mac_key, message.encode(), hashlib.sha256)
         return h.hexdigest()
+    
+    # MAC Verification
+    def verify_mac(self, message, mac):
+        """Verifies the HMAC for the given message."""
+        return hmac.compare_digest(self.generate_mac(message), mac)
+
 
     def encrypt(self, message):
         if self.enableEncryption: 

@@ -32,6 +32,8 @@ Our demonstration utilizes blockchain structures to uphold integrity principles 
 Each device has their own blockchain (similar to a linked list where each block is an object of properties that log individual device events and interactions). The hub periodically requests the chains of all devices. In the case that any of the devices have a differing record of events, the longest, valid chain is used to resolve conflicts. The hub then sends this resolved chain out to all the devices for them to update their own ledgers. 
 
 ## Notes
+- We are currently experiencing issues with Windows devices due to strict porting and networking requirements
+("Failed to send message: [WinError 10061] No connection could be made because the target machine actively refused it") but setting all devices to loopback address (127.0.0.1) can enable a full demo via the UI.
 - RealCameraIOT.py was largely left untouched and not included in our scope of contributions since we did not have the hardware the original team had to accommodate its code. 
 
 ## How to Run
@@ -52,7 +54,6 @@ Each device has their own blockchain (similar to a linked list where each block 
 
 - Messages between the hub and device should be visible over the network with Wireshark (tcp.port == <device port>). 
 - Due to refactoring to TCP, the hub will no longer have the port number 8080.
-- When cloning the repo
 
 ### Running Notes
 - When cloning from bit bucket you navigate to the project directory and press the clone button.

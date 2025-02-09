@@ -89,7 +89,7 @@ giving you the https and ssh cloning options.
 
 - Some merge conflicts forced us to retool some of the work we had done leading up to the project, but we have a demo avaliable with most work.
 
-## The research that inspired our project
+## The Research That Inspired Our Project
 
 Z. Berkay Celik, Leonardo Babun, Amit K. Sikder, Hidayet Aksu, Gang Tan, Patrick McDaniel, and A. Selcuk Uluagac. 2018. Sensitive information tracking in commodity IoT. In Proceedings of the 27th USENIX Conference on Security Symposium (SEC'18). USENIX Association, USA, 1687–1704.
 

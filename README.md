@@ -1,4 +1,4 @@
-# CS Security Final Project Group 1
+# CS Security Final Project Group 1 (Fall 2024)
 
 ## Participants 
 
